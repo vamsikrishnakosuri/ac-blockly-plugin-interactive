@@ -12,11 +12,13 @@ import {
 } from './cursors/flyout_cursor';
 import {Navigation} from './navigation';
 import {NavigationController} from './navigation_controller';
+import {AccessibleCursor} from "./cursors/accessible_cursor";
 
 export {
   Constants,
   FlyoutCursor,
   FlyoutCursorPluginInfo,
   Navigation,
-  NavigationController
+  NavigationController,
+  AccessibleCursor
 };
