@@ -13,7 +13,172 @@ export class AccessibleCursor extends Blockly.Cursor {
     constructor() {
         super();
         this.lastStack = null;
-        this.focusedIn = false;
+        this.editMode = false;
+        this.editingBlock = null;
+    }
+
+    setSpeechListener(speech) {
+        this.speech = speech;
+    }
+
+    setEditingBlock(block) {
+        if (this.editMode) {
+            this.editingBlock = block;
+            if (this.speech) {
+                this.speech.update("Editing selection is updated to newly created block")
+            }
+        }
+    }
+
+    toggleEditMode() {
+        if (this.editMode) {
+            this.editMode = false;
+            if (!this.isBlockNode(this.getCurNode())) {
+                this.setCurNode(this.editingBlock);
+            }
+            this.editingBlock = null;
+            return false;
+        } else {
+            this.editingBlock = this.getCurrentBlock();
+            if (this.editingBlock) {
+                this.editMode = true;
+                console.log("edit mode enabled");
+                this.topConnection();
+                return true;
+            }
+        }
+        return null;
+    }
+
+    isBlockNode(curNode) {
+        return curNode && curNode.getType() === ASTNode.types.BLOCK;
+    }
+
+    getCurrentBlock() {
+        let curNode = this.getCurNode();
+        if (curNode && curNode.getType() === ASTNode.types.BLOCK) {
+            return curNode;
+        } else {
+            return null;
+        }
+    }
+
+    isValidConnectionNode(node) {
+        if (!node) {
+            return false
+        }
+
+        const location = node.getLocation();
+        const type = node ? node.getType() : null;
+        switch (type) {
+            case Blockly.ASTNode.types.INPUT: {
+                const connection = location;
+                return connection.type === Blockly.NEXT_STATEMENT ||  connection.type === Blockly.PREVIOUS_STATEMENT ||  connection.type === Blockly.INPUT_VALUE;
+            }
+            case Blockly.ASTNode.types.NEXT:
+                return true;
+            case Blockly.ASTNode.types.PREVIOUS:
+                return true;
+            default:
+                return false;
+        }
+
+    }
+
+
+    isValidNestedConnectionNode(node) {
+        if (!node) {
+            return false
+        }
+        const location = node.getLocation();
+        const type = node ? node.getType() : null;
+        switch (type) {
+            case Blockly.ASTNode.types.INPUT: {
+                const connection = location;
+                return connection.type === Blockly.NEXT_STATEMENT ||  connection.type === Blockly.PREVIOUS_STATEMENT;
+            }
+            case Blockly.ASTNode.types.NEXT:
+                return true;
+            case Blockly.ASTNode.types.PREVIOUS:
+                return true;
+            default:
+                return false;
+        }
+
+    }
+
+    topConnection() {
+        if (!this.editingBlock) return null;
+        let newNode = this.getPrevNode(this.editingBlock, this.isValidConnectionNode.bind(this));
+        if (newNode) {
+            this.setCurNode(newNode);
+        }
+        return newNode;
+    }
+
+    bottomConnection() {
+        if (!this.editingBlock) return null;
+        let newNode = this.getNextNode(this.editingBlock, this.isValidConnectionNode.bind(this));
+        if (newNode) {
+            this.setCurNode(newNode);
+        }
+        return newNode;
+    }
+
+    rightConnection() {
+        if (!this.editingBlock) return null;
+        let newNode = null;
+        if (
+            (this.hasStatementInputFromASTNode(this.editingBlock) ||
+                (this.hasSingleValueBlock(this.editingBlock) && !this.isOutputuBlock(this.editingBlock)))
+            && this.isValueInputConnection(this.editingBlock.in())) {
+            newNode = this.outputConnection(this.editingBlock, this.isValidConnectionNode.bind(this));
+            if (newNode) {
+                this.setCurNode(newNode);
+                return newNode;
+            } else {
+                return null;
+            }
+        }
+        // if current block has value input the skip
+        if (!this.hasStatementInputFromASTNode(this.editingBlock) && !this.hasFullParentBlock(this.editingBlock)) {
+            newNode = this.getNextRightNode(this.editingBlock, this.isValidConnectionNode.bind(this));
+        }
+        if (newNode) {
+            this.setCurNode(newNode);
+        }
+        return newNode;
+    }
+
+    nestedConnection() {
+        if (!this.editingBlock) return null;
+
+        let newNode = this.getLayerInNode(this.editingBlock, this.isValidNestedConnectionNode.bind(this));
+
+        if (!newNode && this.hasStatementInputFromASTNode(this.editingBlock)) {
+            const block = this.editingBlock.getSourceBlock();
+            for (const input of block.inputList) {
+                if (input.connection && input.connection.type === Blockly.NEXT_STATEMENT) {
+                    const target = input.connection.targetBlock();
+                    if (target) {
+                        newNode = Blockly.ASTNode.createBlockNode(target);
+                    } else {
+                        newNode = Blockly.ASTNode.createConnectionNode(input.connection);
+                    }
+                    break;
+                }
+            }
+        }
+
+        if (!newNode && !this.hasStatementInputFromASTNode(this.editingBlock)) {
+            newNode = this.findFirstBlockInOrNext(this.editingBlock.in(), this.isValidNestedConnectionNode.bind(this));
+        }
+
+        if (newNode) {
+            this.setCurNode(newNode);
+        }
+
+        return newNode;
     }
 
     isValidVerticalNode(node) {
@@ -47,50 +212,21 @@ export class AccessibleCursor extends Blockly.Cursor {
 
     }
 
-    isValidDiagNode(node) {
-        if (!node) {
-            return false
-        }
-
-        const location = node.getLocation();
-        const type = node ? node.getType() : null;
-        console.log("call isValidInNode, node type=", type)
-        switch (type) {
-            case Blockly.ASTNode.types.BLOCK:
-                return true;
-
-            case Blockly.ASTNode.types.STACK:
-                return true;
-
-            case Blockly.ASTNode.types.WORKSPACE:
-                return true;
-            default:
-                return false;
-        }
-
-    }
-
     isValidLayerNode(node) {
         if (!node) {
             return false
         }
-
-        const location = node.getLocation();
         const type = node ? node.getType() : null;
         console.log("call isValidLayerNode, node type=", type)
         switch (type) {
             case Blockly.ASTNode.types.BLOCK:
                 return true;
-
             case Blockly.ASTNode.types.STACK:
                 return true;
-
             case Blockly.ASTNode.types.WORKSPACE:
                 return true;
             case Blockly.ASTNode.types.OUTPUT:
                 return true;
-            // case Blockly.ASTNode.types.INPUT:
-            //     return !location.isConnected();
             case Blockly.ASTNode.types.FIELD: {
                 const field = node.getLocation();
                 return !(
@@ -120,11 +256,6 @@ export class AccessibleCursor extends Blockly.Cursor {
 
             case Blockly.ASTNode.types.WORKSPACE:
                 return true;
-
-            // case Blockly.ASTNode.types.OUTPUT:
-            //     return true;
-            // case Blockly.ASTNode.types.INPUT:
-            //     return !location.isConnected();
             case Blockly.ASTNode.types.FIELD: {
                 const field = node.getLocation();
                 return !(
@@ -194,6 +325,22 @@ export class AccessibleCursor extends Blockly.Cursor {
     }
 
     outputConnection(curNode, isValid) {
+        if (!curNode) {
+            return null;
+        }
+        let newNode = curNode.in();
+        if (!newNode) {
+            newNode = curNode.next();
+        }
+        if (isValid(newNode)) {
+            return newNode;
+        } else if (newNode) {
+            return this.getInNode(newNode, isValid);
+        }
+        return null;
+    }
+
+    outputConnectionNode(curNode, isValid) {
         console.log("call outputConnection, type=", curNode ? curNode.getType() : 'none')
         if (!curNode) {
             return null;
@@ -312,6 +459,10 @@ export class AccessibleCursor extends Blockly.Cursor {
      *     is no next value.
      */
     next() {
+        if (this.editMode) {
+            return this.bottomConnection();
+        }
+
         console.log("AC Cursor S: next");
         const curNode = this.getCurNode();
         if (!curNode) {
@@ -468,6 +619,9 @@ export class AccessibleCursor extends Blockly.Cursor {
     }
 
     layerIn() {
+        if (this.editMode) {
+            return this.nestedConnection();
+        }
         console.log("AC Cursor F: layer in");
         let curNode = this.getCurNode();
         if (!curNode) {
@@ -522,6 +676,9 @@ export class AccessibleCursor extends Blockly.Cursor {
 
     layerOut() {
         console.log("AC Cursor Q: layer out");
+        if (this.editMode) {
+            return null;
+        }
         let curNode = this.getCurNode();
         if (!curNode) {
             return null;
@@ -587,6 +744,9 @@ export class AccessibleCursor extends Blockly.Cursor {
 
     in() {
         console.log("AC Cursor D: in");
+        if (this.editMode) {
+            return this.rightConnection();
+        }
         let curNode = this.getCurNode();
         if (!curNode) {
             return null;
@@ -600,7 +760,7 @@ export class AccessibleCursor extends Blockly.Cursor {
         if (
             (this.hasStatementInputFromASTNode(curNode) || (this.hasSingleValueBlock(curNode) && !this.isOutputuBlock(curNode)))
             && this.isValueInputConnection(curNode.in())) {
-            newNode = this.outputConnection(curNode, this.isValidHorizontalNode.bind(this));
+            newNode = this.outputConnectionNode(curNode, this.isValidHorizontalNode.bind(this));
             if (newNode) {
                 this.setCurNode(newNode);
                 return newNode;
@@ -683,6 +843,10 @@ export class AccessibleCursor extends Blockly.Cursor {
 
     prev() {
         console.log("AC Cursor W: prev");
+        if (this.editMode) {
+            return this.topConnection();
+        }
+
         const curNode = this.getCurNode();
         if (!curNode) {
             return null;
@@ -779,6 +943,9 @@ export class AccessibleCursor extends Blockly.Cursor {
     }
 
     out() {
+        if (this.editMode) {
+            return null;
+        }
         console.log("AC Cursor A: out");
         const curNode = this.getCurNode();
         if (!curNode) {
@@ -794,12 +961,10 @@ export class AccessibleCursor extends Blockly.Cursor {
         let newNode = null;
 
         if (!this.hasStatementInputFromASTNode(curNode) && !this.hasFullParentBlock(curNode)) {
-            console.log("now you can")
             newNode = this.getNextLeftNode(curNode, this.isValidDNode.bind(this));
         }
 
         if (!newNode && this.isOutputConnection(curNode.prev())) {
-            console.log("out gelo");
             newNode = this.getOutNode(curNode, this.isValidHorizontalNode.bind(this));
             if (!this.hasStatementInputFromASTNode(newNode) && !this.hasSingleValueBlock(curNode)) {
                 return null;

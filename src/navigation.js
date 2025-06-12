@@ -599,6 +599,7 @@ export class Navigation {
 
     this.focusWorkspace(workspace);
     workspace.getCursor().setCurNode(Blockly.ASTNode.createTopNode(newBlock));
+    workspace.getCursor().setEditingBlock(Blockly.ASTNode.createBlockNode(newBlock));
     this.removeMark(workspace);
   }
 
@@ -710,6 +711,19 @@ export class Navigation {
       const markerConnection = /** @type {!Blockly.RenderedConnection} */ (
           markerLoc
       );
+      if (markerLoc.isConnected() && markerLoc.type === Blockly.INPUT_VALUE) {
+        const childConn = markerLoc.isSuperior()
+            ? markerLoc.targetConnection          // child
+            : markerLoc;                          // marker itself is the child
+        const childBlock = childConn.getSourceBlock();
+        if (childBlock) {
+          Blockly.Events.setGroup(true);
+          // disconnect from parent then dispose child block
+          childBlock.unplug(true);
+          childBlock.dispose( false,  true);
+          Blockly.Events.setGroup(false);
+        }
+      }
       return this.insertBlock(cursorBlock, markerConnection);
     } else if (markerType == Blockly.ASTNode.types.WORKSPACE) {
       const block = cursorNode ? cursorNode.getSourceBlock() : null;

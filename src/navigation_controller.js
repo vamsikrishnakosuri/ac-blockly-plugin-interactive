@@ -47,6 +47,7 @@ export class NavigationController {
     if (accessibility) {
       this.accessibleCursor = new AccessibleCursor();
       this.speech = new Speech();
+      this.accessibleCursor.setSpeechListener(this.speech);
     }
   }
 
@@ -605,6 +606,37 @@ export class NavigationController {
     );
   }
 
+
+  registerEditModeEvent() {
+    /** @type {!Blockly.ShortcutRegistry.KeyboardShortcut} */
+    const editModeShortcut = {
+      name: Constants.SHORTCUT_NAMES.EDIT_MODE,
+      preconditionFn: (workspace) => {
+        return (
+            workspace.keyboardAccessibilityMode && !workspace.options.readOnly
+        );
+      },
+      callback: (workspace) => {
+        let editMode = this.accessibleCursor.toggleEditMode();
+        if (editMode) {
+          this.speech.update("Entering edit mode");
+          //this.speech.process(this.accessibleCursor.getCurNode(), null, null); add delay
+        } else if (editMode == null) {
+          this.speech.update("Edit mode can be activated on blocks only")
+        } else {
+          this.speech.update("Quiting edit mode")
+          //this.speech.process(this.accessibleCursor.getCurNode(), null, null); add delay
+        }
+      },
+    };
+
+    Blockly.ShortcutRegistry.registry.register(editModeShortcut);
+    Blockly.ShortcutRegistry.registry.addKeyMapping(
+        Blockly.utils.KeyCodes.E,
+        editModeShortcut.name,
+    );
+  }
+
   /**
    * Keyboard shortcut to disconnect two blocks when in keyboard navigation
    * mode.
@@ -705,11 +737,12 @@ export class NavigationController {
         exitShortcut.name,
         true,
     );
-    Blockly.ShortcutRegistry.registry.addKeyMapping(
-        Blockly.utils.KeyCodes.E,
-        exitShortcut.name,
-        true,
-    );
+    // removed E for exit as it conflicts with edit mode shortcut
+    // Blockly.ShortcutRegistry.registry.addKeyMapping(
+    //     Blockly.utils.KeyCodes.E,
+    //     exitShortcut.name,
+    //     true,
+    // );
   }
 
   /**
@@ -1092,6 +1125,7 @@ export class NavigationController {
     this.registerOut();
     this.registerLayerIn();
     this.registerLayerOut();
+    this.registerEditModeEvent();
 
     this.registerDisconnect();
     this.registerExit();
