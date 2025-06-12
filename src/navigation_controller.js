@@ -16,6 +16,8 @@ import * as Blockly from 'blockly/core';
 
 import * as Constants from './constants';
 import {Navigation} from './navigation';
+import {AccessibleCursor} from "./cursors/accessible_cursor";
+import {Speech} from "./audio/speech";
 
 /**
  * Class for registering shortcuts for keyboard navigation.
@@ -44,6 +46,7 @@ export class NavigationController {
     this.navigation = optNavigation || new Navigation();
     if (accessibility) {
       this.accessibleCursor = new AccessibleCursor();
+      this.speech = new Speech();
     }
   }
 
@@ -155,7 +158,7 @@ export class NavigationController {
     if (this.accessibleCursor) {
       const markerManager = Blockly.getMainWorkspace().getMarkerManager();
       markerManager.setCursor(this.accessibleCursor);
-      console.log("accessible cursor is set");
+      console.log("accessible cursor is enabled");
     }
   }
 
@@ -234,6 +237,7 @@ export class NavigationController {
             isHandled = this.fieldShortcutHandler(workspace, shortcut);
             if (!isHandled) {
               let node = workspace.getCursor().prev();
+              this.speech.process(node, Constants.SHORTCUT_NAMES.PREVIOUS, Constants.STATE.WORKSPACE);
               isHandled = true;
             }
             return isHandled;
@@ -241,6 +245,7 @@ export class NavigationController {
             isHandled = this.fieldShortcutHandler(workspace, shortcut);
             if (!isHandled) {
               let node = flyout.getWorkspace().getCursor().prev();
+              this.speech.process(node, Constants.SHORTCUT_NAMES.PREVIOUS, Constants.STATE.FLYOUT);
               isHandled = true;
             }
             return isHandled;
@@ -310,6 +315,7 @@ export class NavigationController {
             isHandled = this.fieldShortcutHandler(workspace, shortcut);
             if (!isHandled) {
               let node = workspace.getCursor().out();
+              this.speech.process(node, Constants.SHORTCUT_NAMES.OUT, Constants.STATE.WORKSPACE);
               isHandled = true;
             }
             return isHandled;
@@ -354,6 +360,7 @@ export class NavigationController {
             isHandled = this.fieldShortcutHandler(workspace, shortcut);
             if (!isHandled) {
               let node = workspace.getCursor().next();
+              this.speech.process(node, Constants.SHORTCUT_NAMES.NEXT, Constants.STATE.WORKSPACE);
               isHandled = true;
             }
             return isHandled;
@@ -361,6 +368,7 @@ export class NavigationController {
             isHandled = this.fieldShortcutHandler(workspace, shortcut);
             if (!isHandled) {
               let node = flyout.getWorkspace().getCursor().next();
+              this.speech.process(node, Constants.SHORTCUT_NAMES.NEXT, Constants.STATE.WORKSPACE);
               isHandled = true;
             }
             return isHandled;
@@ -401,6 +409,7 @@ export class NavigationController {
             isHandled = this.fieldShortcutHandler(workspace, shortcut);
             if (!isHandled) {
               let node = workspace.getCursor().in();
+              this.speech.process(node, Constants.SHORTCUT_NAMES.IN, Constants.STATE.WORKSPACE);
               isHandled = true;
             }
             return isHandled;
@@ -446,6 +455,7 @@ export class NavigationController {
             isHandled = this.fieldShortcutHandler(workspace, shortcut);
             if (!isHandled) {
               let node = workspace.getCursor().layerIn();
+              this.speech.process(node, Constants.SHORTCUT_NAMES.LAYER_IN, Constants.STATE.WORKSPACE);
               isHandled = true;
             }
             return isHandled;
@@ -488,6 +498,7 @@ export class NavigationController {
             isHandled = this.fieldShortcutHandler(workspace, shortcut);
             if (!isHandled) {
               let node = workspace.getCursor().layerOut();
+              this.speech.process(node, Constants.SHORTCUT_NAMES.LAYER_OUT, Constants.STATE.WORKSPACE);
               isHandled = true;
             }
             return isHandled;
