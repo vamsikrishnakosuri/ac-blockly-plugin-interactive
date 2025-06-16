@@ -37,7 +37,7 @@ export class NavigationController {
    * @param {!Navigation=} optNavigation The class that handles keyboard
    *     navigation shortcuts. (Ex: inserting a block, focusing the flyout).
    */
-  constructor(accessibility = false, optNavigation) {
+  constructor(accessibility = true, optNavigation) {
     /**
      * Handles any keyboard navigation shortcuts.
      * @type {!Navigation}
