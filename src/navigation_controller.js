@@ -18,6 +18,8 @@ import * as Constants from './constants';
 import {Navigation} from './navigation';
 import {AccessibleCursor} from "./cursors/accessible_cursor";
 import {Speech} from "./audio/speech";
+import {initBlockNumbers, disposeBlockNumbers} from './labels_and_comments/block_numbers';
+import {initStackLabels, disposeStackLabels} from './labels_and_comments/stack_labels';
 
 /**
  * Class for registering shortcuts for keyboard navigation.
@@ -159,8 +161,13 @@ export class NavigationController {
     if (this.accessibleCursor) {
       const markerManager = Blockly.getMainWorkspace().getMarkerManager();
       markerManager.setCursor(this.accessibleCursor);
-      console.log("accessible cursor is enabled");
     }
+    
+    // Initialize block numbers for the workspace
+    initBlockNumbers(workspace);
+    
+    // Initialize stack labels for the workspace
+    initStackLabels(workspace);
   }
 
   /**
@@ -172,6 +179,12 @@ export class NavigationController {
    */
   removeWorkspace(workspace) {
     this.navigation.removeWorkspace(workspace);
+    
+    // Clean up block numbers
+    disposeBlockNumbers();
+    
+    // Clean up stack labels
+    disposeStackLabels();
   }
 
   /**
