@@ -6,7 +6,8 @@
 
 /**
  * @fileoverview Implements stack labeling in Blockly.
- * Each visually separate stack gets an alphabetical label (A-Z, AA-ZZ, etc.).
+ * Each visually separate stack gets an alphabetical label (A-Z, AA-ZZ, etc.)
+ * with optional custom text added by the user.
  */
 
 import * as Blockly from 'blockly/core';
@@ -43,6 +44,13 @@ export class StackLabelManager {
     this.stackLetters_ = new Map();
 
     /**
+     * Map of block IDs to their custom label texts.
+     * @type {!Map<string, string>}
+     * @private
+     */
+    this.customLabels_ = new Map();
+
+    /**
      * Set of all assigned labels to avoid reuse.
      * @type {!Set<string>}
      * @private
@@ -62,6 +70,20 @@ export class StackLabelManager {
      * @private
      */
     this.enabled_ = false;
+    
+    /**
+     * The currently active label editor, if any.
+     * @type {HTMLElement|null}
+     * @private
+     */
+    this.activeEditor_ = null;
+    
+    /**
+     * The block ID being edited, if any.
+     * @type {string|null}
+     * @private
+     */
+    this.editingBlockId_ = null;
 
     /**
      * Bound event handlers for workspace events.
@@ -83,6 +105,9 @@ export class StackLabelManager {
     
     // Initialize existing stacks
     this.updateAllStackLabels_();
+    
+    // Register keyboard shortcut for editing labels
+    this.registerEditLabelShortcut_();
   }
 
   /**
@@ -98,9 +123,16 @@ export class StackLabelManager {
     // Remove all labels
     this.removeAllLabels_();
     
+    // Remove any active editor
+    this.closeEditor_();
+    
+    // Unregister the edit shortcut
+    this.unregisterEditLabelShortcut_();
+    
     // Clear maps
     this.stackLabels_.clear();
     this.stackLetters_.clear();
+    this.customLabels_.clear();
   }
 
   /**
@@ -113,6 +145,9 @@ export class StackLabelManager {
     
     // Listen for block events
     this.workspace_.addChangeListener(onBlockEvent);
+    
+    // Add contextmenu handler for blocks to edit labels
+    this.addContextMenuOption_();
     
     // Store bound event handlers for cleanup
     this.boundEvents_.push(onBlockEvent);
@@ -212,6 +247,8 @@ export class StackLabelManager {
       for (const [blockId, _] of this.stackLabels_) {
         if (!currentTopBlockIds.has(blockId)) {
           labelsToRemove.push(blockId);
+          // Also clean up custom labels
+          this.customLabels_.delete(blockId);
         }
       }
       
@@ -309,12 +346,15 @@ export class StackLabelManager {
    * @param {string} label The label to display.
    * @private
    */
-  addLabel_(block, label) {
+  addLabel_(block, letterLabel) {
     // Remove any existing label
     this.removeLabel_(block.id);
     
-    // Create the label
-    const labelElement = this.createLabelElement_(label);
+    // Get any custom text for this block
+    const customText = this.customLabels_.get(block.id) || '';
+    
+    // Create the label with custom text if available
+    const labelElement = this.createLabelElement_(letterLabel, customText);
     
     try {
       const blockSvg = block.getSvgRoot();
@@ -384,15 +424,23 @@ export class StackLabelManager {
    * @return {!SVGElement} The label element.
    * @private
    */
-  createLabelElement_(label) {
+  createLabelElement_(letter, customText = '') {
     const NS = Blockly.utils.dom.SVG_NS;
     
     // Create a group to hold the label
     const g = document.createElementNS(NS, 'g');
     g.classList.add('blockly-stack-label');
+    g.style.cursor = 'pointer'; // Ensure pointer cursor even if CSS doesn't load
     
-    // Fixed width calculation based on text length - avoid dynamic calculations
-    const width = 16 + label.length * 10;
+    // Determine full label text and calculate width
+    const fullLabel = customText ? `${letter} ${customText}` : letter;
+    
+    // Calculate width based on label length, with a minimum width
+    // The letter part gets fixed space, the custom text can wrap
+    const maxLabelLength = 25; // Maximum characters to show before truncating
+    const truncatedLabel = fullLabel.length > maxLabelLength ? 
+        fullLabel.substring(0, maxLabelLength - 3) + '...' : fullLabel;
+    const width = Math.max(20 + truncatedLabel.length * 8, 40);
     
     // Create the label background
     const rect = document.createElementNS(NS, 'rect');
@@ -405,16 +453,46 @@ export class StackLabelManager {
     rect.setAttribute('stroke-width', '1');
     g.appendChild(rect);
     
-    // Create the text label with right alignment to be closer to the block
+    // Create the text label
+    // We'll style the letter and custom text differently
     const text = document.createElementNS(NS, 'text');
-    text.setAttribute('x', String(width - 6));
+    text.setAttribute('x', '8'); // Start from left with padding
     text.setAttribute('y', '16');
     text.setAttribute('font-size', '14');
     text.setAttribute('font-weight', 'bold');
     text.setAttribute('fill', 'white');
-    text.setAttribute('text-anchor', 'end'); // Right-align text
-    text.textContent = label;
+    text.setAttribute('text-anchor', 'start'); // Left-align text
+    
+    // Add the letter part
+    const letterSpan = document.createElementNS(NS, 'tspan');
+    letterSpan.textContent = letter;
+    letterSpan.setAttribute('font-weight', 'bold');
+    text.appendChild(letterSpan);
+    
+    // Add the custom text part if it exists
+    if (customText) {
+      const customSpan = document.createElementNS(NS, 'tspan');
+      customSpan.textContent = ` ${truncatedLabel.substring(letter.length + 1)}`;
+      customSpan.setAttribute('font-weight', 'normal');
+      text.appendChild(customSpan);
+    }
+    
     g.appendChild(text);
+    
+    // Make the label clickable for editing
+    g.addEventListener('dblclick', (e) => {
+      // Find the block ID this label belongs to
+      for (const [blockId, labelElement] of this.stackLabels_.entries()) {
+        if (labelElement === g) {
+          this.showEditor_(blockId);
+          break;
+        }
+      }
+      e.stopPropagation();
+    });
+    
+    // Store full width for positioning calculations
+    g.setAttribute('data-width', String(width));
     
     return g;
   }
@@ -425,11 +503,15 @@ export class StackLabelManager {
    * @param {string} stackLabel The stack's label.
    * @private
    */
-  addStackAccessibilityToBlock_(block, stackLabel) {
+  addStackAccessibilityToBlock_(block, letterLabel) {
     try {
       // Get the block's text
       const blockText = typeof block.toString === 'function' ? 
           block.toString(undefined, ' ').trim() : 'Block';
+      
+      // Get custom text if any
+      const customText = this.customLabels_.get(block.id) || '';
+      const fullLabel = customText ? `${letterLabel} ${customText}` : letterLabel;
       
       // Get existing ARIA label if any
       const svgRoot = block.getSvgRoot();
@@ -438,10 +520,15 @@ export class StackLabelManager {
       let ariaLabel = svgRoot.getAttribute('aria-label') || blockText;
       
       // Check if the stack label is already in the ARIA label
-      if (!ariaLabel.includes(`Stack ${stackLabel}:`)) {
+      if (!ariaLabel.includes(`Stack ${letterLabel}:`)) {
         // Add stack label to the beginning of the ARIA label
-        ariaLabel = `Stack ${stackLabel}: ${ariaLabel}`;
+        ariaLabel = `Stack ${fullLabel}: ${ariaLabel}`;
         svgRoot.setAttribute('aria-label', ariaLabel);
+        
+        // Also set a title for tooltip on hover
+        if (customText) {
+          svgRoot.setAttribute('title', `Stack ${fullLabel}`);
+        }
       }
     } catch (e) {
       // Fail quietly if can't set ARIA label
@@ -483,7 +570,9 @@ export class StackLabelManager {
   getStackLabel(blockId) {
     // First check if this is a top block
     if (this.stackLetters_.has(blockId)) {
-      return this.stackLetters_.get(blockId);
+      const letter = this.stackLetters_.get(blockId);
+      const customText = this.customLabels_.get(blockId) || '';
+      return customText ? `${letter} ${customText}` : letter;
     }
     
     // If not a top block, find which stack it belongs to
@@ -499,6 +588,266 @@ export class StackLabelManager {
   update() {
     this.updateAllStackLabels_();
   }
+  
+  /**
+   * Register keyboard shortcut for editing stack labels.
+   * @private
+   */
+  registerEditLabelShortcut_() {
+    // Define the shortcut
+    const editLabelShortcut = {
+      name: 'editStackLabel',
+      preconditionFn: (workspace) => {
+        return workspace.keyboardAccessibilityMode;
+      },
+      callback: (workspace) => {
+        this.handleEditShortcut_(workspace);
+        return true;
+      }
+    };
+    
+    try {
+      // Register the shortcut
+      Blockly.ShortcutRegistry.registry.register(editLabelShortcut);
+      
+      // Map Alt+L to the edit shortcut
+      const altL = Blockly.ShortcutRegistry.registry.createSerializedKey(
+          Blockly.utils.KeyCodes.L,
+          [Blockly.utils.KeyCodes.ALT]
+      );
+      
+      Blockly.ShortcutRegistry.registry.addKeyMapping(
+          altL,
+          editLabelShortcut.name
+      );
+    } catch (e) {
+      console.warn('Could not register edit label shortcut', e);
+    }
+  }
+  
+  /**
+   * Unregister the edit label shortcut.
+   * @private
+   */
+  unregisterEditLabelShortcut_() {
+    try {
+      Blockly.ShortcutRegistry.registry.unregister('editStackLabel');
+    } catch (e) {
+      console.warn('Error unregistering edit label shortcut:', e);
+    }
+  }
+  
+  /**
+   * Handle keyboard shortcut to edit a stack label.
+   * @param {!Blockly.WorkspaceSvg} workspace The workspace.
+   * @private
+   */
+  handleEditShortcut_(workspace) {
+    const cursor = workspace.getCursor();
+    if (!cursor || !cursor.getCurNode()) {
+      return;
+    }
+    
+    const curNode = cursor.getCurNode();
+    const block = curNode.getSourceBlock();
+    
+    if (!block) {
+      return;
+    }
+    
+    // Find the top block of this stack
+    let topBlock = block;
+    while (topBlock.getParent()) {
+      topBlock = topBlock.getParent();
+    }
+    
+    // Check if this top block has a stack label
+    if (this.stackLetters_.has(topBlock.id)) {
+      this.showEditor_(topBlock.id);
+    }
+  }
+  
+  /**
+   * Add a context menu option for editing stack labels.
+   * @private
+   */
+  addContextMenuOption_() {
+    if (!Blockly.ContextMenuRegistry) return;
+    
+    // Define the context menu option
+    const editLabelOption = {
+      displayText: 'Edit stack label...',
+      preconditionFn: function(scope) {
+        // Only show this option for blocks
+        if (scope.block) {
+          // Find the top block of this stack
+          let topBlock = scope.block;
+          while (topBlock.getParent()) {
+            topBlock = topBlock.getParent();
+          }
+          
+          // Only available if this is a top block with a stack label
+          return this.stackLabels_.has(topBlock.id) ? 'enabled' : 'hidden';
+        }
+        return 'hidden';
+      }.bind(this),
+      callback: function(scope) {
+        // Find the top block of this stack
+        let topBlock = scope.block;
+        while (topBlock.getParent()) {
+          topBlock = topBlock.getParent();
+        }
+        
+        this.showEditor_(topBlock.id);
+      }.bind(this),
+      scope: Blockly.ContextMenuRegistry.ScopeType.BLOCK,
+      id: 'edit_stack_label',
+      weight: 110, // Place it near other block-related options
+    };
+    
+    try {
+      // Register the context menu option
+      Blockly.ContextMenuRegistry.registry.register(editLabelOption);
+    } catch (e) {
+      console.warn('Could not register context menu option', e);
+    }
+  }
+  
+  /**
+   * Show the editor for a stack label.
+   * @param {string} blockId The ID of the top block to edit label for.
+   * @private
+   */
+  showEditor_(blockId) {
+    // Close any existing editor
+    this.closeEditor_();
+    
+    // Check if the block exists
+    const block = this.workspace_.getBlockById(blockId);
+    if (!block) return;
+    
+    // Get the letter label and any existing custom text
+    const letter = this.stackLetters_.get(blockId);
+    if (!letter) return;
+    
+    const customText = this.customLabels_.get(blockId) || '';
+    const fullLabel = customText ? `${letter} ${customText}` : letter;
+    
+    // Create an editor element
+    const editor = document.createElement('input');
+    editor.setAttribute('type', 'text');
+    editor.value = fullLabel;
+    editor.classList.add('blockly-stack-label-editor');
+    editor.style.position = 'absolute';
+    editor.style.zIndex = '100';
+    editor.style.width = '150px';
+    editor.style.boxSizing = 'border-box';
+    editor.style.padding = '4px';
+    editor.style.border = '2px solid #4285F4';
+    editor.style.borderRadius = '4px';
+    editor.style.fontFamily = 'Arial, sans-serif';
+    editor.style.fontSize = '14px';
+    
+    // Position the editor near the label
+    const labelElement = this.stackLabels_.get(blockId);
+    if (labelElement) {
+      const rect = labelElement.getBoundingClientRect();
+      const workspaceRect = this.workspace_.getParentSvg().getBoundingClientRect();
+      
+      editor.style.left = `${rect.left + window.pageXOffset}px`;
+      editor.style.top = `${rect.top + window.pageYOffset - 2}px`;
+      editor.style.width = `${Math.max(rect.width, 150)}px`;
+      editor.style.height = `${rect.height + 4}px`;
+    }
+    
+    // Add the editor to the document body
+    document.body.appendChild(editor);
+    this.activeEditor_ = editor;
+    this.editingBlockId_ = blockId;
+    
+    // Focus the editor and select all text
+    editor.focus();
+    editor.select();
+    
+    // Add event handlers
+    editor.addEventListener('keydown', this.handleEditorKeydown_.bind(this));
+    editor.addEventListener('blur', this.saveAndCloseEditor_.bind(this));
+  }
+  
+  /**
+   * Handle keydown events in the editor.
+   * @param {!Event} e The event.
+   * @private
+   */
+  handleEditorKeydown_(e) {
+    if (e.key === 'Enter') {
+      this.saveAndCloseEditor_();
+      e.preventDefault();
+    } else if (e.key === 'Escape') {
+      this.closeEditor_();
+      e.preventDefault();
+    }
+  }
+  
+  /**
+   * Save the edited label and close the editor.
+   * @private
+   */
+  saveAndCloseEditor_() {
+    if (!this.activeEditor_ || !this.editingBlockId_) {
+      this.closeEditor_();
+      return;
+    }
+    
+    // Get the edited text
+    const editedText = this.activeEditor_.value || '';
+    const blockId = this.editingBlockId_;
+    
+    // Get the letter part
+    const letter = this.stackLetters_.get(blockId) || '';
+    
+    // Extract custom text, removing the letter prefix
+    let customText = '';
+    if (editedText.startsWith(letter)) {
+      // Extract text after the letter and any space
+      customText = editedText.substring(letter.length).trim();
+    } else {
+      // If user deleted the letter, just use what they typed
+      customText = editedText.trim();
+    }
+    
+    // Save the custom text if not empty
+    if (customText) {
+      this.customLabels_.set(blockId, customText);
+    } else {
+      // Remove custom text if empty
+      this.customLabels_.delete(blockId);
+    }
+    
+    // Update the label
+    const block = this.workspace_.getBlockById(blockId);
+    if (block) {
+      this.addLabel_(block, letter);
+      this.updateStackBlocksAccessibility_(block, letter);
+    }
+    
+    // Close the editor
+    this.closeEditor_();
+  }
+  
+  /**
+   * Close the editor without saving.
+   * @private
+   */
+  closeEditor_() {
+    if (this.activeEditor_) {
+      if (this.activeEditor_.parentNode) {
+        this.activeEditor_.parentNode.removeChild(this.activeEditor_);
+      }
+      this.activeEditor_ = null;
+    }
+    this.editingBlockId_ = null;
+  }
 }
 
 /**
@@ -506,6 +855,27 @@ export class StackLabelManager {
  * @type {StackLabelManager}
  */
 let stackLabelManagerInstance = null;
+
+// Add stack label styles and increase block number font size by 20%
+document.head.insertAdjacentHTML('beforeend', `
+<style>
+  .blockly-stack-label {
+    cursor: pointer;
+  }
+  
+  .blockly-stack-label:hover rect {
+    filter: brightness(1.1);
+  }
+  
+  .blockly-stack-label-editor {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  }
+  
+  .blockly-block-number text {
+    font-size: 16.8px; /* Increased from 14px by 20% */
+  }
+</style>
+`);
 
 /**
  * Initialize stack labels for a workspace.
