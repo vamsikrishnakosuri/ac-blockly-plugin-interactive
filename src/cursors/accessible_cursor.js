@@ -1,5 +1,6 @@
 import * as Blockly from 'blockly/core';
 import {ASTNode} from "blockly/core";
+import {Constants} from "../index";
 
 /**
  * Class for an accessible cursor.
@@ -15,6 +16,7 @@ export class AccessibleCursor extends Blockly.Cursor {
         this.lastStack = null;
         this.editMode = false;
         this.editingBlock = null;
+        this.editConnection = null;
     }
 
     setSpeechListener(speech) {
@@ -37,6 +39,7 @@ export class AccessibleCursor extends Blockly.Cursor {
                 this.setCurNode(this.editingBlock);
             }
             this.editingBlock = null;
+            this.editConnection = null;
             return false;
         } else {
             this.editingBlock = this.getCurrentBlock();
@@ -460,6 +463,7 @@ export class AccessibleCursor extends Blockly.Cursor {
      */
     next() {
         if (this.editMode) {
+            this.editConnection = "BOTTOM";
             return this.bottomConnection();
         }
 
@@ -620,6 +624,7 @@ export class AccessibleCursor extends Blockly.Cursor {
 
     layerIn() {
         if (this.editMode) {
+            this.editConnection = "LAYER_IN";
             return this.nestedConnection();
         }
         console.log("AC Cursor F: layer in");
@@ -745,6 +750,7 @@ export class AccessibleCursor extends Blockly.Cursor {
     in() {
         console.log("AC Cursor D: in");
         if (this.editMode) {
+            this.editConnection = 'RIGHT';
             return this.rightConnection();
         }
         let curNode = this.getCurNode();
@@ -844,6 +850,7 @@ export class AccessibleCursor extends Blockly.Cursor {
     prev() {
         console.log("AC Cursor W: prev");
         if (this.editMode) {
+            this.editConnection = "TOP";
             return this.topConnection();
         }
 
