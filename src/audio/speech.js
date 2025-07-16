@@ -17,24 +17,24 @@ export class Speech {
     }
 
     clearPreviousSpeeches() {
-        this.readTimeouts.forEach(timeoutID => clearTimeout(timeoutID));
+        this.readTimeouts.forEach(id => cancelAnimationFrame(id));
         this.readTimeouts = [];
     }
 
     update(text) {
         this.clearPreviousSpeeches();
-        // clear and update the screen reader message with delay
-        const readTimeout = setTimeout(() => {
-            const blockReader = document.getElementById("blockReader");
-            blockReader.innerHTML = "";
-            const outputTimeout = setTimeout(() => {
-                this.say(text);
-            }, 100); // delay to allow screen reader to detect change
-            this.readTimeouts.push(outputTimeout);
-        }, 0);
-        this.readTimeouts.push(readTimeout)
-        console.log("spoken:", text);
+        // Schedule single DOM change so screen reader announce exactly once
+        const speak = () => {
+            const filler   = this.toggle ? ' ' : '\u200B';  // ensure diff
+            this.toggle    = !this.toggle;
+            const reader   = document.getElementById('blockReader');
+            reader.textContent = '';              // reset text
+            reader.textContent = `${text}${filler}`;
+        };
+        const id = requestAnimationFrame(speak);
+        this.readTimeouts.push(id);
     }
+
 
     getFirstStatementConnection(block) {
         if (!block || !block.inputList) return null;
@@ -501,4 +501,152 @@ export class Speech {
             this.updateBlockReader(null, null, null, state, movement);
         }
     }
+
+    announceCategory(category, direction = '') {
+        let postfix = '';
+        if (!category) return;
+        const name = (typeof category.getName === 'function')
+            ? category.getName()
+            : category.name_;          // fallback
+
+        let prefix;
+        switch (direction) {
+            case Constants.SHORTCUT_NAMES.NEXT:
+                prefix = 'Move to next category';
+                break;
+            case Constants.SHORTCUT_NAMES.PREVIOUS:
+                prefix = 'Move to previous category';
+                break;
+            case Constants.SHORTCUT_NAMES.IN:
+                prefix = 'Entered category';
+                break;
+            case Constants.SHORTCUT_NAMES.OUT:
+                prefix = 'Back to category';
+                break;
+            default:
+                prefix = 'Toolbox category';
+                postfix = 'selected'
+        }
+
+        this.update(`${prefix}: ${name} ${postfix}`);
+    }
+
+
+    announceFlyoutItem(node, direction = '') {
+        if (!node) {
+            const edge = (direction === Constants.SHORTCUT_NAMES.PREVIOUS)
+                ? 'top'
+                : 'bottom';
+            this.update(`Reached ${edge} of flyout`);
+            return;
+        }
+
+        let label = '';
+        switch (node.getType()) {
+            case Blockly.ASTNode.types.BUTTON: {
+                const btn = node.getLocation();
+                label = btn.getText().trim();
+                break;
+            }
+
+            default: {
+                const blockSvg = node.getSourceBlock();
+                const disabled = !blockSvg.isEnabled();
+                label = this.blockToText(blockSvg.type, disabled);
+
+                // fallback
+                if (!label || label.toLowerCase().startsWith('custom')) {
+                    label =
+                        blockSvg.toString().trim() ||
+                        (blockSvg.tooltip && blockSvg.tooltip.trim()) ||
+                        blockSvg.type;
+                }
+            }
+        }
+
+        let categoryName = '';
+        const categoryObj = Blockly.getMainWorkspace()
+            ?.getToolbox()
+            ?.getSelectedItem();
+        if (categoryObj) {
+            categoryName = (typeof categoryObj.getName === 'function')
+                ? categoryObj.getName()
+                : (categoryObj.name_ || '');
+        }
+        // fallback
+        if (!categoryName) {
+            const labelEl = document.querySelector(
+                '.blocklyTreeSelected .blocklyTreeRowContentContainer .blocklyTreeLabel'
+            );
+            if (labelEl) categoryName = labelEl.textContent.trim();
+        }
+        const dirstrt = (direction === Constants.SHORTCUT_NAMES.PREVIOUS)
+            ? 'back'
+            : '';
+        const phrase = `Move ${dirstrt} to ${categoryName} category, item named ${label} selected`;
+        this.update(phrase);
+    }
+
+
+    friendlyName(blkSvg) {
+        if (!blkSvg) return '';
+        const disabled = !blkSvg.isEnabled();
+        let txt = this.blockToText(blkSvg.type, disabled);
+        if (!txt || txt.toLowerCase().startsWith('custom')) {
+            txt =
+                blkSvg.toString().trim() ||
+                (blkSvg.tooltip && blkSvg.tooltip.trim()) ||
+                blkSvg.type;
+        }
+        return txt;
+    };
+
+    announceInsertedBlock(newBlock, originalBlock, dirKey='') {
+        if (!newBlock) return;
+
+        const newBlockSvg = newBlock.getSourceBlock();
+
+        const newLabel = this.friendlyName(newBlockSvg);
+
+        if (!originalBlock) {
+            this.update(`Inserted ${newLabel}`);
+            return;
+        }
+
+        const refLabel = this.friendlyName(originalBlock);
+
+        const dirWordMap = {
+            TOP   : 'above',
+            BOTTOM: 'below',
+            RIGHT : 'to the right of',
+        };
+        const dirWord = dirWordMap[dirKey] || 'near';
+
+        this.update(`${newLabel} inserted ${dirWord} ${refLabel}`);
+    }
+
+
+    announceMark(node, originalBlock = null, dirKey = '') {
+        if (!node) return;
+        if (originalBlock && dirKey) {
+            const dirWordMap = {
+                TOP   : 'top',
+                BOTTOM: 'bottom',
+                RIGHT : 'right',
+            };
+            const dirWord = dirWordMap[dirKey] || 'near';
+            const refLabel = this.friendlyName(originalBlock);
+            this.update(`Marked ${dirWord} connection of ${refLabel}`);
+            return;
+        }
+
+        if (node.getType() === Blockly.ASTNode.types.WORKSPACE) {
+            this.update('Workspace location marked');
+            return;
+        }
+
+        this.update(`Marked top connection of ${this.friendlyName(node.getSourceBlock && node.getSourceBlock())}`);
+    }
+
+
 }
