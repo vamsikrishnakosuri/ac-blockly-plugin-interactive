@@ -373,7 +373,7 @@ export class Speech {
                             var newChildStr = " ";
 
                             for (var k = 0; k < splitArr.length; k++) {
-                                console.log("splitArrK: " + "#" + splitArr[k] + "#");
+                                // console.log("splitArrK: " + "#" + splitArr[k] + "#");
 
                                 if (splitArr[k] == '?' || splitArr[k] == '???' || splitArr[k] == '') {
                                     splitArr[k] = 'empty value';
@@ -583,7 +583,7 @@ export class Speech {
         const dirstrt = (direction === Constants.SHORTCUT_NAMES.PREVIOUS)
             ? 'back'
             : '';
-        const phrase = `Move ${dirstrt} to ${categoryName} category, item named ${label} selected`;
+        const phrase = `Move ${dirstrt} to item named ${label} under ${categoryName} category`;
         this.update(phrase);
     }
 
@@ -648,5 +648,21 @@ export class Speech {
         this.update(`Marked top connection of ${this.friendlyName(node.getSourceBlock && node.getSourceBlock())}`);
     }
 
+    announceReturnToWorkspace(node) {
+        let phrase = 'Toolbox closed. ';
 
+        if (!node) {
+            this.update(`${phrase} Cursor back on workspace`);
+            return;
+        }
+
+        if (node.getType() === Blockly.ASTNode.types.WORKSPACE) {
+            this.update(`${phrase} Cursor back on workspace`);
+            return;
+        }
+
+        const blk = node.getSourceBlock && node.getSourceBlock();
+        phrase += `Cursor back on ${this.friendlyName(blk)}`;
+        this.update(phrase);
+    }
 }

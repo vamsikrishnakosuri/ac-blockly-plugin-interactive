@@ -26,6 +26,7 @@ export class AccessibleCursor extends Blockly.Cursor {
     setEditingBlock(block) {
         if (this.editMode) {
             this.editingBlock = block;
+            this.topConnection();
             if (this.speech) {
                 this.speech.update("Editing selection is updated to newly created block")
             }
@@ -1073,16 +1074,19 @@ export class AccessibleCursor extends Blockly.Cursor {
 
 
     drawMarker(oldNode, curNode, realDrawer) {
-        console.log("custom drawer");
-        if (oldNode) {
-            console.log("Old node type:" + oldNode.getType());
+        // if previous selection is connection the unhighlight
+        if (oldNode && oldNode.isConnection && oldNode.isConnection()) {
+            const oldConn = oldNode.getLocation();
+            oldConn.unhighlight();
         }
 
-        if (curNode) {
-            console.log("Cur node type:" + curNode.getType());
+        // if connection highlight corner only
+        if (curNode && curNode.isConnection && curNode.isConnection()) {
+            curNode.getLocation().highlight(true);
+            return;
         }
 
-        // If old node was a block, unselect it or remove fake selection.
+        // unselect old selection
         if (oldNode && (oldNode.getType() === Blockly.ASTNode.types.BLOCK ||
             oldNode.getType() === Blockly.ASTNode.types.STACK)) {
             const block = oldNode.getLocation();
@@ -1096,16 +1100,15 @@ export class AccessibleCursor extends Blockly.Cursor {
         }
 
         const curNodeType = curNode ? curNode.getType() : null;
-        // If drawing can't be handled locally, just use the drawer.
+        // delegate to default drawer if non-block
         if (curNodeType !== Blockly.ASTNode.types.BLOCK) {
             console.log("real drawer called");
             realDrawer.draw(oldNode, curNode);
             return;
         }
 
-        // Hide any visible marker SVG and instead do some manual rendering.
+        // hide any visible marker SVG and instead do some manual rendering
         realDrawer.hide();
-        console.log("real drawer hidden");
 
         if (curNode && curNodeType === Blockly.ASTNode.types.BLOCK) {
             const block = curNode.getLocation();

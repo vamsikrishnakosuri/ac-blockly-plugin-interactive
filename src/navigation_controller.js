@@ -612,12 +612,12 @@ export class NavigationController {
         let flyoutCursor;
         let curNode;
         let nodeType;
+        const acCursor = workspace.getCursor();
+        const originalBlock = acCursor.editingBlock ? acCursor.editingBlock.getSourceBlock() : null;
+        const dirKey = acCursor.editConnection;
 
         switch (this.navigation.getState(workspace)) {
           case Constants.STATE.WORKSPACE:
-            const acCursor = workspace.getCursor();
-            const originalBlock = acCursor.editingBlock ? acCursor.editingBlock.getSourceBlock() : null;
-            const dirKey = acCursor.editConnection;
             this.navigation.handleEnterForWS(workspace);
             this.speech.announceMark(workspace.getCursor().getCurNode(), originalBlock, dirKey)
             return true;
@@ -631,9 +631,11 @@ export class NavigationController {
 
             switch (nodeType) {
               case Blockly.ASTNode.types.STACK:
-                const acCursor = workspace.getCursor();
-                const originalBlock = acCursor.editingBlock ? acCursor.editingBlock.getSourceBlock() : null;
-                const dirKey = acCursor.editConnection;
+                const editMode = workspace.getCursor()?.editMode;
+                if (!editMode) {
+                  this.speech.update('Blocks can be inserted when Edit mode activated. Go back to workspace and press E to activate Edit mode');
+                  return true;
+                }
                 this.navigation.insertFromFlyout(workspace);
                 const newBlock = workspace.getCursor().getCurNode();
                 this.speech.announceInsertedBlock(newBlock, originalBlock, dirKey);
@@ -770,12 +772,26 @@ export class NavigationController {
         return workspace.keyboardAccessibilityMode;
       },
       callback: (workspace) => {
+        const wsCursor     = workspace.getCursor();
+        const prevWsNode   = wsCursor.getCurNode();
         switch (this.navigation.getState(workspace)) {
           case Constants.STATE.FLYOUT:
             this.navigation.focusWorkspace(workspace);
+            this.navigation.removeMark(workspace);
+            if (prevWsNode) {
+              console.log("working flyout")
+              wsCursor.setCurNode(prevWsNode);
+            }
+            this.speech.announceReturnToWorkspace(wsCursor.getCurNode())
             return true;
           case Constants.STATE.TOOLBOX:
             this.navigation.focusWorkspace(workspace);
+            this.navigation.removeMark(workspace);
+            if (prevWsNode) {
+              console.log("working tool")
+              wsCursor.setCurNode(prevWsNode);
+            }
+            this.speech.announceReturnToWorkspace(wsCursor.getCurNode())
             return true;
           default:
             return false;
