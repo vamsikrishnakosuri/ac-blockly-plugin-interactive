@@ -49,7 +49,8 @@ export const SHORTCUT_NAMES = {
   MOVE_WS_CURSOR_DOWN: 'workspace_down',
   MOVE_WS_CURSOR_LEFT: 'workspace_left',
   MOVE_WS_CURSOR_RIGHT: 'workspace_right',
-  EDIT_MODE: 'edit_mode'
+  EDIT_MODE: 'edit_mode',
+  CURSOR_LOC: 'cursor_location'
 };
 
 /**
