@@ -245,15 +245,31 @@ export class NavigationController {
           case Constants.STATE.FLYOUT:
             isHandled = this.fieldShortcutHandler(workspace, shortcut);
             if (!isHandled) {
-              let node = flyout.getWorkspace().getCursor().prev();
-              this.speech.process(node, Constants.SHORTCUT_NAMES.PREVIOUS, Constants.STATE.FLYOUT);
+              let node = null;
+              let flyoutCursor = flyout.getWorkspace().getCursor();
+              if (flyoutCursor) {
+                const prevNode = flyoutCursor.prev();
+                node = prevNode ? prevNode.in() : null;
+              }
+              this.speech.announceFlyoutItem(
+                  node,
+                  Constants.SHORTCUT_NAMES.PREVIOUS
+              );
               isHandled = true;
             }
             return isHandled;
           case Constants.STATE.TOOLBOX:
-            return toolbox && typeof toolbox.onShortcut == 'function'
-                ? toolbox.onShortcut(shortcut)
-                : false;
+            if (toolbox && typeof toolbox.onShortcut === 'function') {
+              const handled = toolbox.onShortcut(shortcut);
+              if (handled) {
+                this.speech.announceCategory(toolbox.getSelectedItem(), Constants.SHORTCUT_NAMES.PREVIOUS);
+              }
+              return handled;
+            }
+            return false;
+            // return toolbox && typeof toolbox.onShortcut == 'function'
+            //     ? toolbox.onShortcut(shortcut)
+            //     : false;
           default:
             return false;
         }
@@ -322,6 +338,8 @@ export class NavigationController {
             return isHandled;
           case Constants.STATE.FLYOUT:
             this.navigation.focusToolbox(workspace);
+            const category = workspace.getToolbox()?.getSelectedItem();
+            this.speech.announceCategory(category, Constants.SHORTCUT_NAMES.OUT);
             return true;
           case Constants.STATE.TOOLBOX:
             return toolbox && typeof toolbox.onShortcut == 'function'
@@ -368,15 +386,28 @@ export class NavigationController {
           case Constants.STATE.FLYOUT:
             isHandled = this.fieldShortcutHandler(workspace, shortcut);
             if (!isHandled) {
-              let node = flyout.getWorkspace().getCursor().next();
-              this.speech.process(node, Constants.SHORTCUT_NAMES.NEXT, Constants.STATE.WORKSPACE);
+              let node = null;
+              let flyoutCursor = flyout.getWorkspace().getCursor();
+              if (flyoutCursor) {
+                const nextNode = flyoutCursor.next();
+                node = nextNode ? nextNode.in() : null;
+              }
+              this.speech.announceFlyoutItem(
+                  node,
+                  Constants.SHORTCUT_NAMES.NEXT
+              );
               isHandled = true;
             }
             return isHandled;
           case Constants.STATE.TOOLBOX:
-            return toolbox && typeof toolbox.onShortcut == 'function'
-                ? toolbox.onShortcut(shortcut)
-                : false;
+            if (toolbox && typeof toolbox.onShortcut === 'function') {
+              const handled = toolbox.onShortcut(shortcut);
+              if (handled) {
+                this.speech.announceCategory(toolbox.getSelectedItem(), Constants.SHORTCUT_NAMES.NEXT);
+              }
+              return handled;
+            }
+            return false;
           default:
             return false;
         }
@@ -404,6 +435,7 @@ export class NavigationController {
       },
       callback: (workspace, e, shortcut) => {
         const toolbox = workspace.getToolbox();
+        const flyout = workspace.getFlyout();
         let isHandled = false;
         switch (this.navigation.getState(workspace)) {
           case Constants.STATE.WORKSPACE:
@@ -421,6 +453,16 @@ export class NavigationController {
                     : false;
             if (!isHandled) {
               this.navigation.focusFlyout(workspace);
+              let node = null;
+              let flyoutCursor = flyout.getWorkspace().getCursor();
+              if (flyoutCursor) {
+                const curNode = flyoutCursor.getCurNode();
+                node = curNode ? curNode.in() : null;
+              }
+              this.speech.announceFlyoutItem(
+                  node,
+                  Constants.SHORTCUT_NAMES.IN
+              );
             }
             return true;
           default:
@@ -570,10 +612,14 @@ export class NavigationController {
         let flyoutCursor;
         let curNode;
         let nodeType;
+        const acCursor = workspace.getCursor();
+        const originalBlock = acCursor.editingBlock ? acCursor.editingBlock.getSourceBlock() : null;
+        const dirKey = acCursor.editConnection;
 
         switch (this.navigation.getState(workspace)) {
           case Constants.STATE.WORKSPACE:
             this.navigation.handleEnterForWS(workspace);
+            this.speech.announceMark(workspace.getCursor().getCurNode(), originalBlock, dirKey)
             return true;
           case Constants.STATE.FLYOUT:
             flyoutCursor = this.navigation.getFlyoutCursor(workspace);
@@ -585,7 +631,14 @@ export class NavigationController {
 
             switch (nodeType) {
               case Blockly.ASTNode.types.STACK:
+                const editMode = workspace.getCursor()?.editMode;
+                if (!editMode) {
+                  this.speech.update('Blocks can be inserted when Edit mode activated. Go back to workspace and press E to activate Edit mode');
+                  return true;
+                }
                 this.navigation.insertFromFlyout(workspace);
+                const newBlock = workspace.getCursor().getCurNode();
+                this.speech.announceInsertedBlock(newBlock, originalBlock, dirKey);
                 break;
               case Blockly.ASTNode.types.BUTTON:
                 this.navigation.triggerButtonCallback(workspace);
@@ -690,6 +743,7 @@ export class NavigationController {
               this.navigation.focusFlyout(workspace);
             } else {
               this.navigation.focusToolbox(workspace);
+              this.speech.announceCategory(workspace.getToolbox().getSelectedItem());
             }
             return true;
           default:
@@ -718,12 +772,26 @@ export class NavigationController {
         return workspace.keyboardAccessibilityMode;
       },
       callback: (workspace) => {
+        const wsCursor     = workspace.getCursor();
+        const prevWsNode   = wsCursor.getCurNode();
         switch (this.navigation.getState(workspace)) {
           case Constants.STATE.FLYOUT:
             this.navigation.focusWorkspace(workspace);
+            this.navigation.removeMark(workspace);
+            if (prevWsNode) {
+              console.log("working flyout")
+              wsCursor.setCurNode(prevWsNode);
+            }
+            this.speech.announceReturnToWorkspace(wsCursor.getCurNode())
             return true;
           case Constants.STATE.TOOLBOX:
             this.navigation.focusWorkspace(workspace);
+            this.navigation.removeMark(workspace);
+            if (prevWsNode) {
+              console.log("working tool")
+              wsCursor.setCurNode(prevWsNode);
+            }
+            this.speech.announceReturnToWorkspace(wsCursor.getCurNode())
             return true;
           default:
             return false;

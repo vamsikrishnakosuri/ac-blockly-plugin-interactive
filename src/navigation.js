@@ -598,8 +598,9 @@ export class Navigation {
     }
 
     this.focusWorkspace(workspace);
-    workspace.getCursor().setCurNode(Blockly.ASTNode.createTopNode(newBlock));
-    workspace.getCursor().setEditingBlock(Blockly.ASTNode.createBlockNode(newBlock));
+    const blockNode = Blockly.ASTNode.createBlockNode(newBlock);
+    workspace.getCursor().setCurNode(blockNode);
+    workspace.getCursor().setEditingBlock(blockNode);
     this.removeMark(workspace);
   }
 
