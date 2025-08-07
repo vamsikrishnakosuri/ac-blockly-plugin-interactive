@@ -1202,7 +1202,6 @@ export class AccessibleCursor extends Blockly.Cursor {
         let newNode = null;
 
         if (this.isOnlyConnectedChild(curNode)) {
-            console.log("2:")
             const parentConn = curNode.out();
             const parentBlock = parentConn?.getSourceBlock?.();
             const currentBlock = curNode.getSourceBlock?.();
@@ -1223,7 +1222,6 @@ export class AccessibleCursor extends Blockly.Cursor {
         }
 
         if (!newNode && (this.isOutputConnection(curNode) || this.isOutputConnection(curNode.prev()))) {
-            console.log("3:")
             newNode = this.getOutNode(curNode, this.isValidHorizontalNode.bind(this));
             if (!this.hasStatementInputFromASTNode(newNode) && !this.hasSingleValueBlock(curNode)) {
                 return null;
@@ -1231,7 +1229,6 @@ export class AccessibleCursor extends Blockly.Cursor {
         }
 
         if (!this.hasStatementInputFromASTNode(curNode) && !this.hasFullParentBlock(curNode)) {
-            console.log("1:")
             newNode = this.getNextLeftNode(curNode, this.isValidDNode.bind(this));
             if (newNode && !this.isBlockLeftOf(newNode.getSourceBlock?.(), curNode.getSourceBlock?.())) {
                 newNode = null;
