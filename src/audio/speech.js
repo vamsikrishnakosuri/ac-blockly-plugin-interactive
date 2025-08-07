@@ -1,5 +1,6 @@
 import * as Blockly from 'blockly/core';
 import {Constants} from "../index";
+import * as Util from "../util/util"
 
 export class Speech {
     constructor() {
@@ -94,8 +95,19 @@ export class Speech {
             const baseBlockName = baseBlock ? this.friendlyName(baseBlock) : 'block';
 
             if (LAYER_MOVE) {
+                if (editMode && movement === Constants.SHORTCUT_NAMES.LAYER_OUT) {
+                    this.update("No connection to nest out during edit mode")
+                    return;
+                }
+
                 let containerPhrase = '';
-                let {container, _} = this.containerInfo?.(baseBlock) || {};
+                let container = null;
+                if (Util.isContainerBlock(baseBlock)) {
+                    container = baseBlock;
+                } else {
+                    const { surrounding: detectedContainer } = this.containerInfo?.(baseBlock) || {};
+                    container = detectedContainer;
+                }
 
                 // fallback get direct parent
                 if (!container && baseBlock && baseBlock.getParent()) {
@@ -540,7 +552,7 @@ export class Speech {
                 const stmtInput = parent.inputList.find(
                     inp => inp.connection && inp.connection.type === Blockly.NEXT_STATEMENT);
                 let idx = 0;
-                let firstBlock = stmtInput.connection ? stmtInput.connection.targetBlock() : null;
+                let firstBlock = stmtInput && stmtInput.connection ? stmtInput.connection.targetBlock() : null;
                 // traverse and count position until current block not found
                 while (firstBlock) {
                     if (!firstBlock.outputConnection && !firstBlock.isShadow()) {
@@ -613,4 +625,23 @@ export class Speech {
         this.update(phrase);
     }
 
+    announceEditModeToggle(editMode, curNode) {
+        if (editMode === null) {
+            this.update("Edit mode can be activated on blocks only");
+            return;
+        }
+
+        const block = curNode?.getSourceBlock?.();
+
+        if (block) {
+            const label = this.friendlyName(block);
+            const phrase = editMode
+                ? `Entering edit mode on ${label}`
+                : `Leaving edit mode on ${label}`;
+            this.update(phrase);
+        } else {
+            const fallback = editMode ? "Entering edit mode" : "Leaving edit mode";
+            this.update(fallback);
+        }
+    }
 }

@@ -670,16 +670,9 @@ export class NavigationController {
         );
       },
       callback: (workspace) => {
-        let editMode = this.accessibleCursor.toggleEditMode();
-        if (editMode) {
-          this.speech.update("Entering edit mode");
-          //this.speech.process(this.accessibleCursor.getCurNode(), null, null); add delay
-        } else if (editMode == null) {
-          this.speech.update("Edit mode can be activated on blocks only")
-        } else {
-          this.speech.update("Quiting edit mode")
-          //this.speech.process(this.accessibleCursor.getCurNode(), null, null); add delay
-        }
+        const editMode = this.accessibleCursor.toggleEditMode();
+        const curNode = this.accessibleCursor.getCurNode();
+        this.speech.announceEditModeToggle(editMode, curNode);
       },
     };
 
