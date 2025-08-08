@@ -670,16 +670,9 @@ export class NavigationController {
         );
       },
       callback: (workspace) => {
-        let editMode = this.accessibleCursor.toggleEditMode();
-        if (editMode) {
-          this.speech.update("Entering edit mode");
-          //this.speech.process(this.accessibleCursor.getCurNode(), null, null); add delay
-        } else if (editMode == null) {
-          this.speech.update("Edit mode can be activated on blocks only")
-        } else {
-          this.speech.update("Quiting edit mode")
-          //this.speech.process(this.accessibleCursor.getCurNode(), null, null); add delay
-        }
+        const editMode = this.accessibleCursor.toggleEditMode();
+        const curNode = this.accessibleCursor.getCurNode();
+        this.speech.announceEditModeToggle(editMode, curNode);
       },
     };
 
@@ -1181,6 +1174,29 @@ export class NavigationController {
     );
   }
 
+  registerCursorLocation() {
+    /** @type {!Blockly.ShortcutRegistry.KeyboardShortcut} */
+    const cursorLocShortcut = {
+      name: Constants.SHORTCUT_NAMES.CURSOR_LOC,
+      preconditionFn: (ws) => ws.keyboardAccessibilityMode,
+      callback: (workspace /*, e, shortcut*/) => {
+        const node = workspace.getCursor()?.getCurNode() || null;
+        if (node) {
+          workspace.getCursor()?.setCurNode(node); // highlight if cursor is out of sync due to mouse movement
+        }
+        this.speech.announceCursorLoc(node);
+        return true;
+      },
+    };
+
+    Blockly.ShortcutRegistry.registry.register(cursorLocShortcut);
+    Blockly.ShortcutRegistry.registry.addKeyMapping(
+        Blockly.utils.KeyCodes.C,
+        cursorLocShortcut.name,
+    );
+  }
+
+
   /**
    * Registers all default keyboard shortcut items for keyboard navigation. This
    * should be called once per instance of KeyboardShortcutRegistry.
@@ -1194,6 +1210,7 @@ export class NavigationController {
     this.registerLayerIn();
     this.registerLayerOut();
     this.registerEditModeEvent();
+    this.registerCursorLocation();
 
     this.registerDisconnect();
     this.registerExit();
