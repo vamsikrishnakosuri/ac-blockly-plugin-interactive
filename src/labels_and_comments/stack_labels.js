@@ -793,9 +793,6 @@ export class StackLabelManager {
     const onUiEvent = this.onUiEvent_.bind(this);
     this.workspace_.addChangeListener(onUiEvent);
     
-    // Add contextmenu handler for blocks to edit labels
-    this.addContextMenuOption_();
-    
     // Store bound event handlers for cleanup
     this.boundEvents_.push(onBlockEvent, onUiEvent);
 
@@ -1519,45 +1516,6 @@ export class StackLabelManager {
     console.log('Cleaned up stack letters map:', Array.from(this.stackLetters_.entries()));
   }
   
-  /**
-   * Clean up the usedLabels_ set by removing labels for blocks that no longer exist.
-   * @private
-   */
-  cleanupUsedLabels_() {
-    // First clean up stackLetters_ map to remove entries for blocks that no longer exist
-    // or aren't top level blocks anymore
-    const toDelete = [];
-    
-    // Iterate through all stack letters to find orphaned ones
-    for (const [blockId, letter] of this.stackLetters_.entries()) {
-      const block = this.workspace_.getBlockById(blockId);
-      
-      // If block exists and is a top level block, keep its letter
-      if (block && !block.getParent() && this.isStackBlock_(block)) {
-        // Block still exists as a valid top-level stack block, keep its letter
-        console.log('Keeping letter', letter, 'for block', blockId);
-      } else {
-        // Mark for deletion - don't delete while iterating
-        toDelete.push([blockId, letter]);
-      }
-    }
-    
-    // Now delete the entries we marked
-    for (const [blockId, letter] of toDelete) {
-      console.log('Removing unused letter', letter, 'for non-existent/invalid block', blockId);
-      this.usedLabels_.delete(letter);
-      this.stackLetters_.delete(blockId);
-    }
-    
-    // Now rebuild usedLabels_ from stackLetters_ to ensure they're in sync
-    this.usedLabels_.clear();
-    for (const letter of this.stackLetters_.values()) {
-      this.usedLabels_.add(letter);
-    }
-    
-    console.log('Cleaned up used labels, remaining:', Array.from(this.usedLabels_));
-    console.log('Cleaned up stack letters map:', Array.from(this.stackLetters_.entries()));
-  }
   
   /**
    * Remove any orphaned label DOM elements that don't correspond to valid blocks.
@@ -1650,89 +1608,6 @@ export class StackLabelManager {
     this.updateAllStackLabels_();
   }
   
-  /**
-   * Register keyboard shortcut for editing stack labels.
-   * @private
-   */
-  registerEditLabelShortcut_() {
-    console.log('=== Registering Edit Label Shortcut (Alt+L) ===');
-    
-    // Define the shortcut with looser precondition
-    const editLabelShortcut = {
-      name: 'editStackLabel',
-      preconditionFn: (workspace) => {
-        // Always return true - we'll check conditions in the callback instead
-        // This ensures the shortcut is always triggered when Alt+L is pressed
-        console.log('Edit label shortcut precondition check - always allowing');
-        return true;
-      },
-      callback: (workspace) => {
-        console.log('Alt+L SHORTCUT TRIGGERED!', 'workspace.id =', workspace.id);
-        
-        // First check if we even have a workspace
-        if (!workspace) {
-          console.error('No workspace in callback');
-          return false;
-        }
-        
-        // Use global registry to make sure we find the right manager
-        const manager = stackLabelManagerRegistry.get(workspace.id);
-        if (!manager) {
-          console.error('No stack label manager found for workspace:', workspace.id);
-          // Create one on the fly as a recovery mechanism
-          console.log('Creating stack label manager for workspace:', workspace.id);
-          initStackLabels(workspace);
-          return true;
-        }
-        
-        // Call the handler directly on the right manager
-        manager.handleEditShortcut_(workspace);
-        return true;
-      }
-    };
-    
-    try {
-      // Try to unregister first to avoid duplicates
-      try {
-        Blockly.ShortcutRegistry.registry.unregister('editStackLabel');
-        console.log('Unregistered existing editStackLabel shortcut');
-      } catch (unregisterError) {
-        // Ignore errors - it might not exist yet
-      }
-      
-      // Register the shortcut
-      Blockly.ShortcutRegistry.registry.register(editLabelShortcut);
-      console.log('Successfully registered editStackLabel shortcut');
-      
-      // Map Alt+L to the edit shortcut
-      const altL = Blockly.ShortcutRegistry.registry.createSerializedKey(
-          Blockly.utils.KeyCodes.L,
-          [Blockly.utils.KeyCodes.ALT]
-      );
-      
-      Blockly.ShortcutRegistry.registry.addKeyMapping(
-          altL,
-          editLabelShortcut.name
-      );
-      console.log('Successfully mapped Alt+L to editStackLabel');
-      
-      // Also add a key mapping with just L to help debugging
-      // This is just for testing - remove in production
-      const justL = Blockly.ShortcutRegistry.registry.createSerializedKey(
-          Blockly.utils.KeyCodes.L,
-          []
-      );
-      Blockly.ShortcutRegistry.registry.addKeyMapping(
-          justL,
-          editLabelShortcut.name,
-          false // This is a secondary mapping
-      );
-      console.log('Added debug mapping of just L key to editStackLabel');
-      
-    } catch (e) {
-      console.warn('Could not register edit label shortcut', e);
-    }
-  }
   
   /**
    * Unregister the edit label keyboard shortcut.
@@ -1746,99 +1621,6 @@ export class StackLabelManager {
     }
   }
 
-  /**
-   * Handle keyboard shortcut to edit a stack label.
-   * @param {!Blockly.WorkspaceSvg} workspace The workspace.
-   * @private
-   */
-  handleEditShortcut_(workspace) {
-    console.log('=== Alt+L shortcut triggered for stack label editing ===');
-    console.log('Current workspace ID:', workspace.id);
-    console.log('This manager workspace ID:', this.workspace_ ? this.workspace_.id : 'undefined');
-    
-    // Make sure we're using the right workspace
-    if (!this.workspace_ || workspace.id !== this.workspace_.id) {
-      console.error('🚫 Workspace mismatch in shortcut handler! This might be the root cause.');
-      console.log('Stack label manager registry entries:', Array.from(stackLabelManagerRegistry.keys()));
-      console.log('Active workspace has manager?', stackLabelManagerRegistry.has(workspace.id));
-      
-      // Try to get the correct manager for this workspace
-      const correctManager = stackLabelManagerRegistry.get(workspace.id);
-      if (correctManager) {
-        console.log('Found correct manager for workspace, forwarding shortcut handler');
-        correctManager.handleEditShortcut_(workspace);
-        return;
-      } else {
-        console.error('No stack label manager found for this workspace. Is initStackLabels called?');
-        return;
-      }
-    }
-    
-    const cursor = workspace.getCursor();
-    if (!cursor) {
-      console.error('No cursor found in workspace. Is keyboard accessibility mode enabled?');
-      return;
-    }
-    
-    if (!cursor.getCurNode()) {
-      console.error('No cursor node found. Is a block selected with keyboard navigation?');
-      return;
-    }
-    
-    const curNode = cursor.getCurNode();
-    const block = curNode.getSourceBlock();
-    
-    if (!block) {
-      console.error('No block found in cursor node');
-      return;
-    }
-    
-    console.log('Block found in cursor:', block.id, block.type);
-    
-    // Find the top block of this stack
-    let topBlock = block;
-    while (topBlock.getParent()) {
-      topBlock = topBlock.getParent();
-    }
-    
-    console.log('Top block found:', topBlock.id, topBlock.type);
-    
-    // Show block data for debugging
-    console.log('Block information:', {
-      id: topBlock.id,
-      type: topBlock.type,
-      isEnabled: topBlock.isEnabled(),
-      isDeletable: topBlock.isDeletable(),
-      isMovable: topBlock.isMovable(),
-      childBlocks_: topBlock.childBlocks_ ? topBlock.childBlocks_.length : 'N/A'
-    });
-    
-    // Check if this top block has a stack label
-    if (this.stackLetters_.has(topBlock.id)) {
-      console.log('Opening editor for block with letter:', this.stackLetters_.get(topBlock.id));
-      this.showEditor_(topBlock.id);
-    } else {
-      // If the block doesn't have a label yet, try to assign one and then edit
-      console.log('Block has no label yet, updating labels first');
-      this.updateAllStackLabels_();
-      
-      // Now check if it has a label
-      if (this.stackLetters_.has(topBlock.id)) {
-        console.log('Now opening editor after assigning label');
-        this.showEditor_(topBlock.id);
-      } else {
-        console.error('🚫 Still no label found for block after update! Forcing label assignment...');
-        // Try explicitly assigning a label as a last resort
-        const label = this.getNextAvailableLabel_();
-        console.log('Forcing label assignment:', label, 'to block', topBlock.id);
-        this.stackLetters_.set(topBlock.id, label);
-        this.usedLabels_.add(label);
-        this.addLabel_(topBlock, label);
-        this.showEditor_(topBlock.id);
-      }
-    }
-    return true;
-  }
   
   /**
    * Reset the stack label state, clearing all internal tracking.
@@ -1937,51 +1719,6 @@ export class StackLabelManager {
     }
   }
 
-  addContextMenuOption_() {
-    if (!Blockly.ContextMenuRegistry || !Blockly.ContextMenuRegistry.registry) {
-      console.warn('ContextMenuRegistry not available, cannot add stack label context menu option');
-      return;
-    }
-    
-    // Define the context menu option
-    const editLabelOption = {
-      displayText: 'Edit stack label...',
-      preconditionFn: function(scope) {
-        // Only show this option for blocks
-        if (scope.block) {
-          // Find the top block of this stack
-          let topBlock = scope.block;
-          while (topBlock.getParent()) {
-            topBlock = topBlock.getParent();
-          }
-          
-          // Only available if this is a top block with a stack label
-          return this.stackLetters_.has(topBlock.id) ? 'enabled' : 'hidden';
-        }
-        return 'hidden';
-      }.bind(this),
-      callback: function(scope) {
-        // Find the top block of this stack
-        let topBlock = scope.block;
-        while (topBlock.getParent()) {
-          topBlock = topBlock.getParent();
-        }
-        
-        this.showEditor_(topBlock.id);
-      }.bind(this),
-      scope: Blockly.ContextMenuRegistry.ScopeType.BLOCK,
-      id: 'edit_stack_label',
-      weight: 110, // Place it near other block-related options
-    };
-    
-    try {
-      // Register the context menu option
-      Blockly.ContextMenuRegistry.registry.register(editLabelOption);
-      console.log('Added stack label context menu option');
-    } catch (e) {
-      console.warn('Could not register context menu option', e);
-    }
-  }
 }
 
 /**
