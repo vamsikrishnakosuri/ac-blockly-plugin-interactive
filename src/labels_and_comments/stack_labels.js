@@ -250,42 +250,25 @@ export class StackLabelManager {
   
   /**
    * Register keyboard shortcuts for stack labels.
+   * NOTE: Keyboard shortcuts are now handled by NavigationController
    * @private
    */
   registerKeyboardShortcuts_() {
-    // Add Alt+I shortcut for editing stack labels
-    const workspace = this.workspace_;
-    if (!workspace) {
-      console.warn('Cannot register keyboard shortcuts: workspace not available');
-      return;
-    }
-    
-    // Skip ShortcutRegistry and use direct DOM event listener instead to avoid collisions
-    // This simplifies our approach and ensures no conflicts with built-in shortcuts
-    const handleKeyDown = this.handleKeyDown_.bind(this);
-    
-    // Store the bound function for later removal
-    this.editShortcutHandler_ = handleKeyDown;
-    
-    // Add the event listener
-    document.addEventListener('keydown', handleKeyDown);
-    
-    console.log('Registered DOM-level keyboard shortcut for Alt+I');
+    // Alt+I shortcut is now registered in NavigationController.registerStackLabelEdit()
+    // This method is kept for compatibility but no longer registers shortcuts
+    console.log('Stack label shortcuts are handled by NavigationController');
   }
   
   /**
    * Handle keydown events for stack label shortcuts.
+   * NOTE: This method is no longer used - shortcuts handled by NavigationController
    * @param {!KeyboardEvent} e The keyboard event.
    * @private
+   * @deprecated
    */
   handleKeyDown_(e) {
-    // Only proceed if Alt key is pressed with I (keyCode 73)
-    if (e.altKey && e.keyCode === 73) {
-      console.log('Alt+I detected through DOM listener');
-      e.preventDefault();
-      e.stopPropagation();
-      this.handleStackLabelShortcut_(this.workspace_);
-    }
+    // This method is deprecated - Alt+I is now handled by NavigationController
+    console.warn('handleKeyDown_ is deprecated - use NavigationController instead');
   }
   
   /**
@@ -1271,9 +1254,9 @@ export class StackLabelManager {
     try {
       // Get block position
       const blockBox = block.getBoundingRectangle();
-      // Position the label 10px above the top-left corner of the block
+      // Position the label above the red border area when stack is selected
       const x = blockBox.left;
-      const y = blockBox.top - 25; // Position above the block with some margin
+      const y = blockBox.top - 18; // Position above the red border for clean appearance
       
       // Apply the transform to position the label
       labelElement.setAttribute('transform', `translate(${x}, ${y})`);
@@ -1286,7 +1269,7 @@ export class StackLabelManager {
         if (blockSvg) {
           const blockPos = blockSvg.getBoundingClientRect();
           const x = blockPos.left;
-          const y = blockPos.top - 25;
+          const y = blockPos.top - 18;
           labelElement.setAttribute('transform', `translate(${x}, ${y})`);
         }
       } catch (innerError) {

@@ -281,8 +281,8 @@ export class BlockNumberManager {
     text.textContent = number.toString();
     g.appendChild(text);
     
-    // Position the badge in the top-right corner
-    g.setAttribute('transform', 'translate(-16, 8)');
+    // Position the badge with distance from block (similar to red border spacing)
+    g.setAttribute('transform', 'translate(-24, 0)');
     
     return g;
   }
