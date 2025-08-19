@@ -1198,6 +1198,138 @@ export class NavigationController {
 
 
   /**
+   * Keyboard shortcut to add/open a comment on the current block.
+   * Ctrl + /
+   * - If the block has no comment: creates an empty comment and opens the editor.
+   * - If the block already has a comment: open/close the editor
+   * @protected
+   */
+  registerAddComment() {
+    const _commentsEnabled = (workspace) =>
+        !!(workspace && workspace.options && workspace.options.comments !== false);
+
+    /** @type {!Blockly.ShortcutRegistry.KeyboardShortcut} */
+    const addCommentShortcut = {
+      name: Constants.SHORTCUT_NAMES.ADD_COMMENT,
+      preconditionFn: function (workspace) {
+        if (!workspace || !workspace.keyboardAccessibilityMode || workspace.options.readOnly || !_commentsEnabled(workspace)) return false;
+        const node  = workspace.getCursor?.()?.getCurNode?.();
+        const block = node?.getSourceBlock?.();
+        if (!block) return false;
+        if (block.workspace?.isFlyout) return false;
+        if (typeof block.isEditable === 'function' && !block.isEditable()) return false;
+        if (typeof block.isCollapsed === 'function' && block.isCollapsed()) return false;
+        if (Blockly.Gesture?.inProgress?.()) return false;
+        return true;
+      },
+      callback: (workspace, e) => {
+        const block = workspace.getCursor?.()?.getCurNode?.()?.getSourceBlock?.();
+        if (!block) return false;
+
+        if (e && e.preventDefault) e.preventDefault();
+
+        if (block.getCommentText?.() == null) {
+          block.setCommentText?.('');
+        }
+
+        const commentIcon = block.getIcon?.(Blockly.icons?.IconType?.COMMENT);
+        if (!commentIcon?.setBubbleVisible || !commentIcon?.bubbleIsVisible) {
+          return true;
+        }
+
+        const openBubble = !commentIcon.bubbleIsVisible();
+
+        const getCommentText = () =>
+            commentIcon.getText?.() ?? block.getCommentText?.() ?? '';
+
+        // bound the text we speak to avoid long speech
+        const summarize = (raw, maxLen = 160) => {
+          const cleaned = String(raw).replace(/\s+/g, ' ').trim();
+          if (!cleaned) return '';
+          return cleaned.length > maxLen ? `${cleaned.slice(0, maxLen)}…` : cleaned;
+        };
+
+        const announceWithText = (opened) => {
+          if (!this.speech) return;
+          const label   = this.speech.blockToText(block);
+          const content = summarize(getCommentText());
+          const tail    = content ? ` Current text: ${content}` : ' Comment is empty.';
+          this.speech.update(`${opened ? 'Opened' : 'Closed'} comment on ${label}.${tail}`);
+        };
+
+        // function to query bubble layer when present
+        const queryTextarea = () => {
+          const doc = workspace.getParentSvg?.()?.ownerDocument || document;
+          return (
+              commentIcon.textarea_ ||
+              commentIcon.textarea ||
+              doc.querySelector('.blocklyBubbleCanvas .blocklyTextInputBubble textarea.blocklyTextarea')
+          );
+        };
+
+        // bind e key handler to comment box to move focus to workspace
+        const bindTextareaKeys = () => {
+          const textarea = queryTextarea();
+          if (!textarea || textarea.__accKeysBound) return; // idempotent
+          textarea.__accKeysBound = true;
+          textarea.addEventListener(
+              'keydown',
+              (ev) => {
+                const isSlash = ev.key === '/' || ev.code === 'Slash';
+                const ctrlOrMeta = ev.ctrlKey || ev.metaKey;
+                const wasBubbleOpen = commentIcon.bubbleIsVisible();
+
+                if (ctrlOrMeta && isSlash) {
+                  ev.preventDefault();
+                  ev.stopPropagation();
+                  commentIcon.setBubbleVisible(!commentIcon.bubbleIsVisible());
+                  if (wasBubbleOpen) {
+                    try {
+                      workspace.markFocused?.();
+                      workspace.getParentSvg?.()?.focus?.();
+                      announceWithText(!wasBubbleOpen);
+                    } catch {}
+                  }
+                }
+              },
+              true // capture
+          );
+        };
+
+        const focusTextareaNextFrame = () => {
+          requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+              try { queryTextarea()?.focus?.(); } catch {}
+              bindTextareaKeys();
+            });
+          });
+        };
+
+        const togglePromise = commentIcon.setBubbleVisible(openBubble);
+        if (openBubble) {
+          togglePromise?.then ? togglePromise.then(focusTextareaNextFrame) : focusTextareaNextFrame();
+        }
+        announceWithText(openBubble);
+        return true;
+      },
+    };
+
+    Blockly.ShortcutRegistry.registry.register(addCommentShortcut);
+
+    const ctrlSlash = Blockly.ShortcutRegistry.registry.createSerializedKey(
+        191, // keyCode for '/'
+        [Blockly.utils.KeyCodes.CTRL],
+    );
+    Blockly.ShortcutRegistry.registry.addKeyMapping(ctrlSlash, addCommentShortcut.name, true);
+
+    const metaSlash = Blockly.ShortcutRegistry.registry.createSerializedKey(
+        191,
+        [Blockly.utils.KeyCodes.META],
+    );
+    Blockly.ShortcutRegistry.registry.addKeyMapping(metaSlash, addCommentShortcut.name, true);
+  }
+
+  /**
    * Registers all default keyboard shortcut items for keyboard navigation. This
    * should be called once per instance of KeyboardShortcutRegistry.
    * @protected
@@ -1211,6 +1343,7 @@ export class NavigationController {
     this.registerLayerOut();
     this.registerEditModeEvent();
     this.registerCursorLocation();
+    this.registerAddComment();
 
     this.registerDisconnect();
     this.registerExit();
