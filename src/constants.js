@@ -50,7 +50,8 @@ export const SHORTCUT_NAMES = {
   MOVE_WS_CURSOR_LEFT: 'workspace_left',
   MOVE_WS_CURSOR_RIGHT: 'workspace_right',
   EDIT_MODE: 'edit_mode',
-  EDIT_STACK_LABEL: 'editStackLabel'
+  EDIT_STACK_LABEL: 'editStackLabel',
+  STACK_SEARCH: 'stackSearch'
 };
 
 /**

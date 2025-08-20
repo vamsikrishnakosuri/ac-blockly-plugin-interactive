@@ -19,7 +19,8 @@ import {Navigation} from './navigation';
 import {AccessibleCursor} from "./cursors/accessible_cursor";
 import {Speech} from "./audio/speech";
 import {initBlockNumbers, disposeBlockNumbers} from './labels_and_comments/block_numbers';
-import {initStackLabels, disposeStackLabels, getStackLabelManager} from './labels_and_comments/stack_labels';
+import { initStackLabels, disposeStackLabels, getStackLabelManager } from './labels_and_comments/stack_labels.js';
+import { initStackSearch, disposeStackSearch, getStackSearchManager } from './labels_and_comments/stack_search.js';
 
 /**
  * Class for registering shortcuts for keyboard navigation.
@@ -165,7 +166,10 @@ export class NavigationController {
     
     // Initialize block numbers and stack labels
     initBlockNumbers(workspace);
+    // Initialize stack labels for this workspace
     initStackLabels(workspace);
+    // Initialize stack search for this workspace
+    initStackSearch(workspace);
   }
 
   /**
@@ -178,9 +182,10 @@ export class NavigationController {
   removeWorkspace(workspace) {
     this.navigation.removeWorkspace(workspace);
     
-    // Clean up block numbers and stack labels
+    // Clean up block numbers, stack labels, and stack search
     disposeBlockNumbers();
     disposeStackLabels();
+    disposeStackSearch(workspace);
   }
 
   /**
@@ -1185,7 +1190,8 @@ export class NavigationController {
     this.registerIn();
     this.registerOut();
     this.registerLayerIn();
-    this.registerLayerOut();
+    this.registerStackLabelEdit();
+    this.registerStackSearch();
     this.registerEditModeEvent();
 
     this.registerDisconnect();
@@ -1204,7 +1210,43 @@ export class NavigationController {
     this.registerPaste();
     this.registerCut();
     this.registerDelete();
-    this.registerStackLabelEdit();
+  }
+
+  /**
+   * Keyboard shortcut to search stacks with Alt+Shift+G.
+   * @protected
+   */
+  registerStackSearch() {
+    /** @type {!Blockly.ShortcutRegistry.KeyboardShortcut} */
+    const stackSearchShortcut = {
+        name: Constants.SHORTCUT_NAMES.STACK_SEARCH,
+        preconditionFn: (workspace) => {
+            return workspace.keyboardAccessibilityMode;
+        },
+        callback: (workspace) => {
+            // Get the stack search manager for this workspace
+            const manager = getStackSearchManager(workspace);
+            if (!manager) {
+                console.log('No stack search manager found for workspace');
+                return false;
+            }
+            
+            // Call the handler on the manager
+            return manager.handleStackSearchShortcut_(workspace);
+        },
+    };
+
+    Blockly.ShortcutRegistry.registry.register(stackSearchShortcut);
+    
+    const altShiftG = Blockly.ShortcutRegistry.registry.createSerializedKey(
+        Blockly.utils.KeyCodes.G,
+        [Blockly.utils.KeyCodes.ALT, Blockly.utils.KeyCodes.SHIFT]
+    );
+    
+    Blockly.ShortcutRegistry.registry.addKeyMapping(
+        altShiftG,
+        stackSearchShortcut.name,
+    );
   }
 
   /**
