@@ -1190,6 +1190,7 @@ export class NavigationController {
     this.registerIn();
     this.registerOut();
     this.registerLayerIn();
+    this.registerLayerOut();
     this.registerStackLabelEdit();
     this.registerStackSearch();
     this.registerEditModeEvent();
