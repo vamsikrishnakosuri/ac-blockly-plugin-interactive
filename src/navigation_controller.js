@@ -1549,6 +1549,182 @@ export class NavigationController {
     Blockly.ShortcutRegistry.registry.addKeyMapping(metaSlash, addCommentShortcut.name, true);
   }
 
+  registerReorderStatementShortcuts() {
+    /** @type {!Blockly.ShortcutRegistry.KeyboardShortcut} */
+    const moveUpShortcut = {
+      name: Constants.SHORTCUT_NAMES.MOVE_STATEMENT_UP,
+      preconditionFn: (workspace) => {
+        if (!workspace?.keyboardAccessibilityMode || workspace.options.readOnly) return false;
+        const cursor = workspace.getCursor?.();
+        return !(cursor?.editMode); // navigation mode only
+      },
+      callback: (workspace, e) => {
+        if (e && e.preventDefault) e.preventDefault();
+        const block = this._currentStatementBlock(workspace);
+        if (!block) {
+          this.speech.update('No movable statement block selected.');
+          return true;
+        }
+        const moved = this._moveStatementSibling(block, 'up');
+        if (!moved) {
+          this.speech.update('No sibling block above to rearrange with current block');
+        }
+        return true;
+      },
+    };
+
+    /** @type {!Blockly.ShortcutRegistry.KeyboardShortcut} */
+    const moveDownShortcut = {
+      name: Constants.SHORTCUT_NAMES.MOVE_STATEMENT_DOWN,
+      preconditionFn: (workspace) => {
+        if (!workspace?.keyboardAccessibilityMode || workspace.options.readOnly) return false;
+        const cursor = workspace.getCursor?.();
+        return !(cursor?.editMode); // navigation mode only
+      },
+      callback: (workspace, e) => {
+        if (e && e.preventDefault) e.preventDefault();
+        const block = this._currentStatementBlock(workspace);
+        if (!block) {
+          this.speech.update('No movable statement block selected.');
+          return true;
+        }
+        const moved = this._moveStatementSibling(block, 'down');
+        if (!moved) {
+          this.speech.update('No sibling block below to rearrange with current block');
+        }
+        return true;
+      },
+    };
+
+    Blockly.ShortcutRegistry.registry.register(moveUpShortcut);
+    Blockly.ShortcutRegistry.registry.register(moveDownShortcut);
+
+    const altW = Blockly.ShortcutRegistry.registry.createSerializedKey(Blockly.utils.KeyCodes.W, [Blockly.utils.KeyCodes.ALT]);
+    const altS = Blockly.ShortcutRegistry.registry.createSerializedKey(Blockly.utils.KeyCodes.S, [Blockly.utils.KeyCodes.ALT]);
+
+    Blockly.ShortcutRegistry.registry.addKeyMapping(altW, moveUpShortcut.name, true);
+    Blockly.ShortcutRegistry.registry.addKeyMapping(altS, moveDownShortcut.name, true);
+  }
+
+
+  // get current statement block
+  _currentStatementBlock(workspace) {
+    const cursor  = workspace.getCursor?.();
+    const curNode = cursor?.getCurNode?.();
+    if (!curNode) return null;
+
+    if (curNode.isConnection?.()) {
+      return false;
+    }
+
+    let block = curNode.getSourceBlock() || null;
+    if (!block || block.isDisposed() || block.isShadow?.()) return null;
+
+    const isStatementLikeBlock = !!(block.previousConnection || block.nextConnection);
+    if (!isStatementLikeBlock) return null;
+
+    return block;
+  }
+
+
+
+  /**
+   * Move a statement block up/down among its siblings within the same container
+   * @param {!Blockly.BlockSvg} block The statement block to move.
+   * @param {'up'|'down'} dir
+   * @returns {boolean} True if moved, false if at boundary or invalid.
+   */
+  _moveStatementSibling(block, dir) {
+    if (!block?.workspace || block.isDisposed?.() || block.isShadow?.()) return false;
+    if (dir !== 'up' && dir !== 'down') return false;
+
+    const prevConn = block.previousConnection;
+    const nextConn = block.nextConnection;
+    if (!prevConn && !nextConn) return false;
+
+    const nextSibling = nextConn?.targetBlock?.() || null;
+
+    // switch down
+    if (dir === 'down') {
+      const C = nextSibling;
+      if (!C) return false; // no blocks below
+      const D = C.nextConnection?.targetBlock?.() || null;
+
+      const groupId = 'ac-move-down-' + Date.now();
+      Blockly.Events.setGroup(groupId);
+      try {
+        // detach current block B
+        block.unplug(true);
+
+        // make space after C and connect B
+        if (D?.previousConnection?.isConnected?.()) {
+          D.previousConnection.disconnect();
+        }
+
+        if (!C.nextConnection) return false;
+        C.nextConnection.connect(block.previousConnection);
+
+        // reattach D after B
+        if (D?.previousConnection && block.nextConnection) {
+          block.nextConnection.connect(D.previousConnection);
+        }
+
+        // focus on moved block
+        const cursor = block.workspace.getCursor?.();
+        const node = Blockly.ASTNode.createBlockNode(block);
+        cursor.setCurNode(node);
+        this.speech.update('Moved current block down.'); // TODO: enhance speech
+        return true;
+      } finally {
+        Blockly.Events.setGroup(false);
+      }
+    }
+
+    // switch up
+    if (dir === 'up') {
+      // require a sibling block above current block
+      const targetPrevConn = prevConn.targetConnection || null;
+      const prevBlock = targetPrevConn?.getSourceBlock?.() || null;
+      const hasPrevSibling =
+          !!(prevBlock && !prevBlock.isShadow?.() && targetPrevConn === prevBlock.nextConnection);
+
+      if (!hasPrevSibling) return false; // no block above
+
+      const A = prevBlock; // previous sibling
+      const D = block.nextConnection?.targetBlock?.() || null;
+
+      const groupId = 'ac-move-up-' + Date.now();
+      Blockly.Events.setGroup(groupId);
+      try {
+        // detach top block
+        A.unplug(true);
+
+        // make space after current block B and connect A after B
+        if (D?.previousConnection?.isConnected?.()) {
+          D.previousConnection.disconnect();
+        }
+        if (!block.nextConnection) return false; // defensive
+        block.nextConnection.connect(A.previousConnection);
+
+        // reattach D after A
+        if (D?.previousConnection && A.nextConnection) {
+          A.nextConnection.connect(D.previousConnection);
+        }
+
+        // ]focus on moved block
+        const cursor = block.workspace.getCursor?.();
+        const node = Blockly.ASTNode.createBlockNode(block);
+        cursor.setCurNode(node);
+        this.speech.update('Moved block up.'); // TODO: enhance speech
+        return true;
+      } finally {
+        Blockly.Events.setGroup(false);
+      }
+    }
+
+    return false;
+  }
+
   /**
    * Registers all default keyboard shortcut items for keyboard navigation. This
    * should be called once per instance of KeyboardShortcutRegistry.
@@ -1581,6 +1757,8 @@ export class NavigationController {
     this.registerPaste();
     this.registerCut();
     this.registerDelete();
+
+    this.registerReorderStatementShortcuts();
   }
 
   /**
