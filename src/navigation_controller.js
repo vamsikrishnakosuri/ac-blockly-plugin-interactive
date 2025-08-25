@@ -29,6 +29,10 @@ export class NavigationController {
   /** The workspace a copy or cut keyboard shortcut happened in. */
   copyWorkspace = null;
 
+  detachedBlock = null;
+
+  detachedWorkspace = null;
+
   /**
    * Constructor used for registering shortcuts.
    * This will register any default shortcuts for keyboard navigation.
@@ -478,6 +482,26 @@ export class NavigationController {
     );
   }
 
+  _isSelectionOnDetached(workspace) {
+    const det = this.detachedBlock;
+    if (!det || det.isDisposed?.()) return false;
+
+    const cursor  = workspace.getCursor?.();
+    const curNode = cursor?.getCurNode?.();
+    if (!curNode) return false;
+
+    const nodeBlock =
+        curNode.getSourceBlock?.() ||
+        (curNode.getLocation?.() && curNode.getLocation().getSourceBlock?.()) ||
+        null;
+
+    if (!nodeBlock) return false;
+
+    // check if root is the detached block
+    const root = nodeBlock.getRootBlock?.();
+    return !!(root && root.id === det.id);
+  }
+
   /**
    * Keyboard shortcut to layer in to the location when in keyboard navigation
    * mode.
@@ -495,6 +519,10 @@ export class NavigationController {
         let isHandled = false;
         switch (this.navigation.getState(workspace)) {
           case Constants.STATE.WORKSPACE:
+            if (this._isSelectionOnDetached(workspace)) {
+              this.speech.update('This is the detached block. Attach it to a connection before navigating inside.');
+              return true;
+            }
             isHandled = this.fieldShortcutHandler(workspace, shortcut);
             if (!isHandled) {
               let node = workspace.getCursor().layerIn();
@@ -631,8 +659,11 @@ export class NavigationController {
 
             switch (nodeType) {
               case Blockly.ASTNode.types.STACK:
+                const markerNode = workspace.getMarker(this.navigation.MARKER_NAME).getCurNode();
+                const markerIsWorkspace =
+                    !!markerNode && markerNode.getType() === Blockly.ASTNode.types.WORKSPACE;
                 const editMode = workspace.getCursor()?.editMode;
-                if (!editMode) {
+                if (!editMode && !markerIsWorkspace) {
                   this.speech.update('Blocks can be inserted when Edit mode activated. Go back to workspace and press E to activate Edit mode');
                   return true;
                 }
@@ -941,6 +972,7 @@ export class NavigationController {
         ) {
           const curNode = workspace.getCursor().getCurNode();
           if (curNode && curNode.getSourceBlock()) {
+            console.log("copied block")
             const sourceBlock = curNode.getSourceBlock();
             return (
                 !Blockly.Gesture.inProgress() &&
@@ -997,7 +1029,7 @@ export class NavigationController {
   }
 
   /**
-   * Register shortcut to paste the copied block to the marked location.
+   * Register shortcut to paste the copied/detached block to the marked location.
    * @protected
    */
   registerPaste() {
@@ -1005,16 +1037,144 @@ export class NavigationController {
     const pasteShortcut = {
       name: Constants.SHORTCUT_NAMES.PASTE,
       preconditionFn: (workspace) => {
-        return (
-            workspace.keyboardAccessibilityMode &&
-            !workspace.options.readOnly &&
-            !Blockly.Gesture.inProgress()
-        );
+        if (!workspace?.keyboardAccessibilityMode || workspace.options.readOnly) return false;
+        if (Blockly.Gesture.inProgress()) return false;
+        const acCursor = workspace.getCursor?.();
+        // require edit mode and a stashed detached block or copied block
+        const hasDetached = !!(this.detachedBlock && !this.detachedBlock.isDisposed?.());
+        const hasCopied   = !!this.copyData;
+        return !!(acCursor?.editMode && (hasDetached || hasCopied));
       },
-      callback: () => {
-        if (!this.copyData || !this.copyWorkspace) return false;
-        return this.navigation.paste(this.copyData, this.copyWorkspace);
-      },
+      callback: (workspace) => {
+        const cursor   = workspace.getCursor?.();
+        const curNode  = cursor?.getCurNode?.();
+        const editMode = cursor?.editMode;
+
+        if (!editMode) {
+          this.speech.update('Blocks can be attached when Edit mode activated. Press E to activate Edit mode');
+          return true;
+        }
+
+        /** @type {!Blockly.RenderedConnection} */
+        const destConnection = curNode?.getLocation?.();
+        if (!destConnection || typeof destConnection.getSourceBlock !== 'function') {
+          return true;
+        }
+
+        const destType = destConnection.type;
+        let stashedChildForStatement = null;   // for NEXT sockets, reattach below after success
+        let oldValueForRollback = null;        // for INPUT_VALUE, restore on failure or dispose on success
+        const existing = destConnection.targetBlock?.();
+
+        // value connection then replace existing block
+        if (destType === Blockly.INPUT_VALUE) {
+          if (existing) {
+            // detach, later dispose when new insert succeeds.
+            this.navigation.ejectConnectedBlock(destConnection, /*disposeChild=*/false);
+            oldValueForRollback = existing;
+          }
+          // statement connection then detach and reattach below after insert
+        } else if (destType === Blockly.NEXT_STATEMENT && destConnection.isSuperior?.()) {
+          if (existing) {
+            this.navigation.ejectConnectedBlock(destConnection, /*disposeChild=*/false);
+            stashedChildForStatement = existing;
+          }
+        }
+
+        // Decide which block to attach.
+        let blockToAttach = null;
+        let createdFromClipboard = false;
+
+        if (this.detachedBlock && !this.detachedBlock.isDisposed?.()) {
+          blockToAttach = this.detachedBlock;
+        } else if (this.copyData) {
+          try {
+            Blockly.Events.setGroup(true);
+            const pasted = /** @type {Blockly.BlockSvg} */ (Blockly.clipboard.paste(this.copyData, workspace));
+            if (pasted) {
+              pasted.render();
+              pasted.setConnectionTracking(true);
+              blockToAttach = pasted;
+              createdFromClipboard = true;
+            }
+          } finally {
+            Blockly.Events.setGroup(false);
+          }
+        }
+
+        if (!blockToAttach || blockToAttach.isDisposed()) {
+          // roll back value child if we detached it
+          if (oldValueForRollback && oldValueForRollback?.outputConnection) {
+            destConnection.connect(oldValueForRollback.outputConnection);
+          }
+          this.speech.update('Nothing to paste here.');
+          return true;
+        }
+
+        const wasDisabled = typeof blockToAttach.isEnabled === 'function' ? (blockToAttach.isEnabled() === false) : false;
+        if (wasDisabled) blockToAttach.setEnabled(true);
+
+        const inserted = this.navigation.insertBlock(blockToAttach, destConnection);
+
+        if (!inserted) {
+          if (oldValueForRollback && oldValueForRollback?.outputConnection) {
+            destConnection.connect(oldValueForRollback.outputConnection);
+          }
+          // clean up new block
+          if (createdFromClipboard) {
+            blockToAttach.dispose(false);
+          } else if (wasDisabled) {
+            blockToAttach.setEnabled(false);
+          }
+          this.speech.update('The block is not compatible with this connection.');
+          return true;
+        }
+
+        // if replaced a value input, dispose the old value
+        if (oldValueForRollback) {
+          oldValueForRollback.dispose(true);
+        }
+
+        // if inserted into a statement input, reattach the prior first child below the new chain.
+        if (stashedChildForStatement && destType === Blockly.NEXT_STATEMENT) {
+          let tail = blockToAttach;
+          while (tail?.nextConnection && tail.nextConnection.targetBlock?.()) {
+            tail = tail.nextConnection.targetBlock();
+          }
+          const tailNext  = tail?.nextConnection || null;
+          const childPrev = stashedChildForStatement.previousConnection || null;
+
+          if (tailNext && childPrev) {
+            try {
+              tailNext.connect?.(childPrev);
+            } catch {
+              this.detachedBlock = stashedChildForStatement;
+              this.detachedWorkspace = workspace;
+              this.speech.update('Inserted block. The previous child could not be reattached and was left detached.');
+            }
+          } else {
+            this.detachedBlock = stashedChildForStatement;
+            this.detachedWorkspace = workspace;
+            this.speech.update('Inserted block. The previous child could not be reattached and was left detached.');
+          }
+        }
+
+        // clear the stash for detach block
+        if (blockToAttach === this.detachedBlock) {
+          this.detachedBlock = null;
+          this.detachedWorkspace = null;
+        }
+
+        // move cursor to the newly attached block and set edit focus
+        const node = Blockly.ASTNode.createBlockNode(blockToAttach);
+        cursor?.setCurNode(node);
+        cursor?.setEditingBlock?.(node);
+
+        // TODO: make speech more intuitive
+        this.speech.update(`Attached ${this.speech.blockToText(blockToAttach) || 'block'}.`);
+        return true;
+      }
+
     };
 
     Blockly.ShortcutRegistry.registry.register(pasteShortcut);
@@ -1056,6 +1216,10 @@ export class NavigationController {
    * @protected
    */
   registerCut() {
+    const hasDetachedBlock = () => {
+      return !!(this.detachedBlock && !this.detachedBlock.isDisposed?.());
+    }
+
     /** @type {!Blockly.ShortcutRegistry.KeyboardShortcut} */
     const cutShortcut = {
       name: Constants.SHORTCUT_NAMES.CUT,
@@ -1079,13 +1243,69 @@ export class NavigationController {
         return false;
       },
       callback: (workspace) => {
-        const sourceBlock = /** @type {Blockly.BlockSvg} */ (
-            workspace.getCursor().getCurNode().getSourceBlock()
+        if (this.navigation.getState(workspace) !== Constants.STATE.WORKSPACE) {
+          return false;
+        }
+        // already has detached block
+        if (hasDetachedBlock()) {
+          this.speech.update('You already have a detached block. Enter edit mode and press Ctrl+V to attach it, or press Ctrl+Z to cancel.');
+          return true;
+        }
+
+        const cursor = workspace.getCursor();
+        if (cursor?.editMode) {
+          this.speech.update('Block can not be cut on edit mode. Press E to leave Edit mode');
+          return true;
+        }
+
+        const node = cursor?.getCurNode?.();
+        const block = node?.getSourceBlock?.();
+        if (!block || block.isShadow?.() || block.workspace?.isFlyout) {
+          this.speech.update('Nothing to detach here.');
+          return false;
+        }
+
+        // prefer detaching inferior child when cursor is on a live connection that is currently connected.
+        let targetBlock = block;
+        if (node.isConnection()) {
+          const conn = node.getLocation();
+          const inferior = conn.isSuperior ? (conn.isSuperior() ? conn.targetConnection : conn) : null;
+          targetBlock = inferior?.getSourceBlock?.() || block;
+        }
+
+        Blockly.Events.setGroup(true);
+
+        try {
+          // if detached block has a parent, unplug aside.
+          const hadParent = !!targetBlock.getParent?.();
+          if (hadParent) {
+            targetBlock.unplug(false);
+            try {
+              const xy = targetBlock.getRelativeToSurfaceXY?.();
+              if (xy) targetBlock.moveTo(new Blockly.utils.Coordinate(xy.x + 20, xy.y + 20));
+            } catch {}
+          }
+          targetBlock.bringToFront();
+          // disable detached block to mark it as cut
+          targetBlock.setEnabled?.(false);
+          // stash detached block
+          this.detachedBlock = targetBlock;
+          this.detachedWorkspace = targetBlock.workspace;
+          const xy = targetBlock.getRelativeToSurfaceXY?.();
+          if (xy) {
+            let focusNode = Blockly.ASTNode.createWorkspaceNode(
+                workspace,
+                new Blockly.utils.Coordinate(xy.x, xy.y)
+            );
+            if (focusNode) cursor?.setCurNode(focusNode);
+          }
+        } catch{}
+        finally {
+          Blockly.Events.setGroup(false);
+        }
+        this.speech.update?.(
+            `Detached ${this.speech.blockToText(targetBlock) || 'block'}. Enter edit mode on desired block, navigate to a connection, then press Ctrl+V to attach.`
         );
-        this.copyData = sourceBlock.toCopyData();
-        this.copyWorkspace = sourceBlock.workspace;
-        this.navigation.moveCursorOnBlockDelete(workspace, sourceBlock);
-        sourceBlock.checkAndDelete();
         return true;
       },
     };
@@ -1198,6 +1418,314 @@ export class NavigationController {
 
 
   /**
+   * Keyboard shortcut to add/open a comment on the current block.
+   * Ctrl + /
+   * - If the block has no comment: creates an empty comment and opens the editor.
+   * - If the block already has a comment: open/close the editor
+   * @protected
+   */
+  registerAddComment() {
+    const _commentsEnabled = (workspace) =>
+        !!(workspace && workspace.options && workspace.options.comments !== false);
+
+    /** @type {!Blockly.ShortcutRegistry.KeyboardShortcut} */
+    const addCommentShortcut = {
+      name: Constants.SHORTCUT_NAMES.ADD_COMMENT,
+      preconditionFn: function (workspace) {
+        if (!workspace || !workspace.keyboardAccessibilityMode || workspace.options.readOnly || !_commentsEnabled(workspace)) return false;
+        const node  = workspace.getCursor?.()?.getCurNode?.();
+        const block = node?.getSourceBlock?.();
+        if (!block) return false;
+        if (block.workspace?.isFlyout) return false;
+        if (typeof block.isEditable === 'function' && !block.isEditable()) return false;
+        if (typeof block.isCollapsed === 'function' && block.isCollapsed()) return false;
+        if (Blockly.Gesture?.inProgress?.()) return false;
+        return true;
+      },
+      callback: (workspace, e) => {
+        const block = workspace.getCursor?.()?.getCurNode?.()?.getSourceBlock?.();
+        if (!block) return false;
+
+        if (e && e.preventDefault) e.preventDefault();
+
+        if (block.getCommentText?.() == null) {
+          block.setCommentText?.('');
+        }
+
+        const commentIcon = block.getIcon?.(Blockly.icons?.IconType?.COMMENT);
+        if (!commentIcon?.setBubbleVisible || !commentIcon?.bubbleIsVisible) {
+          return true;
+        }
+
+        const openBubble = !commentIcon.bubbleIsVisible();
+
+        const getCommentText = () =>
+            commentIcon.getText?.() ?? block.getCommentText?.() ?? '';
+
+        // bound the text we speak to avoid long speech
+        const summarize = (raw, maxLen = 160) => {
+          const cleaned = String(raw).replace(/\s+/g, ' ').trim();
+          if (!cleaned) return '';
+          return cleaned.length > maxLen ? `${cleaned.slice(0, maxLen)}…` : cleaned;
+        };
+
+        const announceWithText = (opened) => {
+          if (!this.speech) return;
+          const label   = this.speech.blockToText(block);
+          const content = summarize(getCommentText());
+          const tail    = content ? ` Current text: ${content}` : ' Comment is empty.';
+          this.speech.update(`${opened ? 'Opened' : 'Closed'} comment on ${label}.${tail}`);
+        };
+
+        // function to query bubble layer when present
+        const queryTextarea = () => {
+          const doc = workspace.getParentSvg?.()?.ownerDocument || document;
+          return (
+              commentIcon.textarea_ ||
+              commentIcon.textarea ||
+              doc.querySelector('.blocklyBubbleCanvas .blocklyTextInputBubble textarea.blocklyTextarea')
+          );
+        };
+
+        // bind e key handler to comment box to move focus to workspace
+        const bindTextareaKeys = () => {
+          const textarea = queryTextarea();
+          if (!textarea || textarea.__accKeysBound) return; // idempotent
+          textarea.__accKeysBound = true;
+          textarea.addEventListener(
+              'keydown',
+              (ev) => {
+                const isSlash = ev.key === '/' || ev.code === 'Slash';
+                const ctrlOrMeta = ev.ctrlKey || ev.metaKey;
+                const wasBubbleOpen = commentIcon.bubbleIsVisible();
+
+                if (ctrlOrMeta && isSlash) {
+                  ev.preventDefault();
+                  ev.stopPropagation();
+                  commentIcon.setBubbleVisible(!commentIcon.bubbleIsVisible());
+                  if (wasBubbleOpen) {
+                    try {
+                      workspace.markFocused?.();
+                      workspace.getParentSvg?.()?.focus?.();
+                      announceWithText(!wasBubbleOpen);
+                    } catch {}
+                  }
+                }
+              },
+              true // capture
+          );
+        };
+
+        const focusTextareaNextFrame = () => {
+          requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+              try { queryTextarea()?.focus?.(); } catch {}
+              bindTextareaKeys();
+            });
+          });
+        };
+
+        const togglePromise = commentIcon.setBubbleVisible(openBubble);
+        if (openBubble) {
+          togglePromise?.then ? togglePromise.then(focusTextareaNextFrame) : focusTextareaNextFrame();
+        }
+        announceWithText(openBubble);
+        return true;
+      },
+    };
+
+    Blockly.ShortcutRegistry.registry.register(addCommentShortcut);
+
+    const ctrlSlash = Blockly.ShortcutRegistry.registry.createSerializedKey(
+        191, // keyCode for '/'
+        [Blockly.utils.KeyCodes.CTRL],
+    );
+    Blockly.ShortcutRegistry.registry.addKeyMapping(ctrlSlash, addCommentShortcut.name, true);
+
+    const metaSlash = Blockly.ShortcutRegistry.registry.createSerializedKey(
+        191,
+        [Blockly.utils.KeyCodes.META],
+    );
+    Blockly.ShortcutRegistry.registry.addKeyMapping(metaSlash, addCommentShortcut.name, true);
+  }
+
+  registerReorderStatementShortcuts() {
+    /** @type {!Blockly.ShortcutRegistry.KeyboardShortcut} */
+    const moveUpShortcut = {
+      name: Constants.SHORTCUT_NAMES.MOVE_STATEMENT_UP,
+      preconditionFn: (workspace) => {
+        if (!workspace?.keyboardAccessibilityMode || workspace.options.readOnly) return false;
+        const cursor = workspace.getCursor?.();
+        return !(cursor?.editMode); // navigation mode only
+      },
+      callback: (workspace, e) => {
+        if (e && e.preventDefault) e.preventDefault();
+        const block = this._currentStatementBlock(workspace);
+        if (!block) {
+          this.speech.update('No movable statement block selected.');
+          return true;
+        }
+        const moved = this._moveStatementSibling(block, 'up');
+        if (!moved) {
+          this.speech.update('No sibling block above to rearrange with current block');
+        }
+        return true;
+      },
+    };
+
+    /** @type {!Blockly.ShortcutRegistry.KeyboardShortcut} */
+    const moveDownShortcut = {
+      name: Constants.SHORTCUT_NAMES.MOVE_STATEMENT_DOWN,
+      preconditionFn: (workspace) => {
+        if (!workspace?.keyboardAccessibilityMode || workspace.options.readOnly) return false;
+        const cursor = workspace.getCursor?.();
+        return !(cursor?.editMode); // navigation mode only
+      },
+      callback: (workspace, e) => {
+        if (e && e.preventDefault) e.preventDefault();
+        const block = this._currentStatementBlock(workspace);
+        if (!block) {
+          this.speech.update('No movable statement block selected.');
+          return true;
+        }
+        const moved = this._moveStatementSibling(block, 'down');
+        if (!moved) {
+          this.speech.update('No sibling block below to rearrange with current block');
+        }
+        return true;
+      },
+    };
+
+    Blockly.ShortcutRegistry.registry.register(moveUpShortcut);
+    Blockly.ShortcutRegistry.registry.register(moveDownShortcut);
+
+    const altW = Blockly.ShortcutRegistry.registry.createSerializedKey(Blockly.utils.KeyCodes.W, [Blockly.utils.KeyCodes.ALT]);
+    const altS = Blockly.ShortcutRegistry.registry.createSerializedKey(Blockly.utils.KeyCodes.S, [Blockly.utils.KeyCodes.ALT]);
+
+    Blockly.ShortcutRegistry.registry.addKeyMapping(altW, moveUpShortcut.name, true);
+    Blockly.ShortcutRegistry.registry.addKeyMapping(altS, moveDownShortcut.name, true);
+  }
+
+
+  // get current statement block
+  _currentStatementBlock(workspace) {
+    const cursor  = workspace.getCursor?.();
+    const curNode = cursor?.getCurNode?.();
+    if (!curNode) return null;
+
+    if (curNode.isConnection?.()) {
+      return false;
+    }
+
+    let block = curNode.getSourceBlock() || null;
+    if (!block || block.isDisposed() || block.isShadow?.()) return null;
+
+    const isStatementLikeBlock = !!(block.previousConnection || block.nextConnection);
+    if (!isStatementLikeBlock) return null;
+
+    return block;
+  }
+
+
+
+  /**
+   * Move a statement block up/down among its siblings within the same container
+   * @param {!Blockly.BlockSvg} block The statement block to move.
+   * @param {'up'|'down'} dir
+   * @returns {boolean} True if moved, false if at boundary or invalid.
+   */
+  _moveStatementSibling(block, dir) {
+    if (!block?.workspace || block.isDisposed?.() || block.isShadow?.()) return false;
+    if (dir !== 'up' && dir !== 'down') return false;
+
+    const prevConn = block.previousConnection;
+    const nextConn = block.nextConnection;
+    if (!prevConn && !nextConn) return false;
+
+    const nextSibling = nextConn?.targetBlock?.() || null;
+
+    // switch down
+    if (dir === 'down') {
+      const C = nextSibling;
+      if (!C) return false; // no blocks below
+      const D = C.nextConnection?.targetBlock?.() || null;
+
+      const groupId = 'ac-move-down-' + Date.now();
+      Blockly.Events.setGroup(groupId);
+      try {
+        // detach current block B
+        block.unplug(true);
+
+        // make space after C and connect B
+        if (D?.previousConnection?.isConnected?.()) {
+          D.previousConnection.disconnect();
+        }
+
+        if (!C.nextConnection) return false;
+        C.nextConnection.connect(block.previousConnection);
+
+        // reattach D after B
+        if (D?.previousConnection && block.nextConnection) {
+          block.nextConnection.connect(D.previousConnection);
+        }
+
+        // focus on moved block
+        const cursor = block.workspace.getCursor?.();
+        const node = Blockly.ASTNode.createBlockNode(block);
+        cursor.setCurNode(node);
+        this.speech.update('Moved current block down.'); // TODO: enhance speech
+        return true;
+      } finally {
+        Blockly.Events.setGroup(false);
+      }
+    }
+
+    // switch up
+    if (dir === 'up') {
+      // require a sibling block above current block
+      const targetPrevConn = prevConn.targetConnection || null;
+      const prevBlock = targetPrevConn?.getSourceBlock?.() || null;
+      const hasPrevSibling =
+          !!(prevBlock && !prevBlock.isShadow?.() && targetPrevConn === prevBlock.nextConnection);
+
+      if (!hasPrevSibling) return false; // no block above
+
+      const A = prevBlock; // previous sibling
+      const D = block.nextConnection?.targetBlock?.() || null;
+
+      const groupId = 'ac-move-up-' + Date.now();
+      Blockly.Events.setGroup(groupId);
+      try {
+        // detach top block
+        A.unplug(true);
+
+        // make space after current block B and connect A after B
+        if (D?.previousConnection?.isConnected?.()) {
+          D.previousConnection.disconnect();
+        }
+        if (!block.nextConnection) return false; // defensive
+        block.nextConnection.connect(A.previousConnection);
+
+        // reattach D after A
+        if (D?.previousConnection && A.nextConnection) {
+          A.nextConnection.connect(D.previousConnection);
+        }
+
+        // ]focus on moved block
+        const cursor = block.workspace.getCursor?.();
+        const node = Blockly.ASTNode.createBlockNode(block);
+        cursor.setCurNode(node);
+        this.speech.update('Moved block up.'); // TODO: enhance speech
+        return true;
+      } finally {
+        Blockly.Events.setGroup(false);
+      }
+    }
+
+    return false;
+  }
+
+  /**
    * Registers all default keyboard shortcut items for keyboard navigation. This
    * should be called once per instance of KeyboardShortcutRegistry.
    * @protected
@@ -1211,6 +1739,7 @@ export class NavigationController {
     this.registerLayerOut();
     this.registerEditModeEvent();
     this.registerCursorLocation();
+    this.registerAddComment();
 
     this.registerDisconnect();
     this.registerExit();
@@ -1228,6 +1757,8 @@ export class NavigationController {
     this.registerPaste();
     this.registerCut();
     this.registerDelete();
+
+    this.registerReorderStatementShortcuts();
   }
 
   /**
