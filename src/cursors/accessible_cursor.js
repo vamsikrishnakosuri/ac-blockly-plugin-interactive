@@ -18,6 +18,12 @@ export class AccessibleCursor extends Blockly.Cursor {
         this.editMode = false;
         this.editingBlock = null;
         this.editConnection = null;
+        this.shouldSuppressScroll = false;
+    }
+
+    // prevent scroll to current view
+    suppressNextScroll() {
+        this.shouldSuppressScroll = true;
     }
 
     setSpeechListener(speech) {
@@ -675,16 +681,21 @@ export class AccessibleCursor extends Blockly.Cursor {
         if (!block) return null;
 
         // find NEXT_STATEMENT input connections
-        for (const input of block.inputList) {
-            const conn = input.connection;
-            const target = conn?.targetBlock();
-            if (conn && conn.type === Blockly.ConnectionType.NEXT_STATEMENT && target) {
-                const node = Blockly.ASTNode.createBlockNode(target);
-                if (this.isValidLayerNode(node)) {
-                    this.setCurNode(node);
-                    return node;
+        const stmtInputs = block.inputList?.filter(
+               i => i.connection && i.connection.type === Blockly.ConnectionType.NEXT_STATEMENT) || [];
+        if (stmtInputs.length) {
+            for (const input of block.inputList) {
+                const conn = input.connection;
+                const target = conn?.targetBlock();
+                if (conn && conn.type === Blockly.ConnectionType.NEXT_STATEMENT && target) {
+                    const node = Blockly.ASTNode.createBlockNode(target);
+                    if (this.isValidLayerNode(node)) {
+                        this.setCurNode(node);
+                        return node;
+                    }
                 }
             }
+            return null;
         }
 
         // find INPUT_VALUE input connections on non-containers like set-variable
@@ -1120,13 +1131,14 @@ export class AccessibleCursor extends Blockly.Cursor {
 
         console.log("current node type: " + curNode.getType());
 
-        if (curNode.getType() === Blockly.ASTNode.types.STACK || curNode.getType() === Blockly.ASTNode.types.WORKSPACE) {
+        if (curNode.getType() === Blockly.ASTNode.types.STACK ||
+            curNode.getType() === Blockly.ASTNode.types.WORKSPACE) {
             return null;
         }
 
         let newNode = null;
 
-        if (this.isOnlyConnectedChild(curNode)) {
+        if (this.isOnlyConnectedChild(curNode) && !Util.isContainerBlock(curNode.getSourceBlock())) {
             const parentConn = curNode.out();
             const parentBlock = parentConn?.getSourceBlock?.();
             const currentBlock = curNode.getSourceBlock?.();
@@ -1227,14 +1239,17 @@ export class AccessibleCursor extends Blockly.Cursor {
 
         super.setCurNode(newNode);
 
-        // Try to scroll cursor into view.
-        if (newNode && newNode.getType() === Blockly.ASTNode.types.BLOCK) {
+        // scroll cursor into current block view
+        if (!this.shouldSuppressScroll &&
+             newNode && newNode.getType() === Blockly.ASTNode.types.BLOCK) {
             const block = newNode.getLocation();
             this.scrollBoundsIntoView(
                 block.getBoundingRectangleWithoutChildren(),
                 block.workspace,
             );
         }
+        // reset scroll
+        this.shouldSuppressScroll = false;
     }
 
 
