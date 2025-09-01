@@ -1,0 +1,178 @@
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;1,100;1,200;1,300;1,400;1,500;1,600;1,700&display=swap');
+
+/* * {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+} */
+
+body {
+    background-color: #f4f4f4;
+    font-family: 'IBM Plex Mono', monospace !important;
+}
+
+select, option, select:focus, option:hover {
+    font-family: 'IBM Plex Mono', monospace;
+}
+
+
+#root {
+    /* max-width: 1280px; */
+    margin: 0 auto;
+    padding: 0 1rem;
+    width: 90%;
+    height: 100vh;
+}
+
+#blocklyDiv,
+.execution-panel {
+    height: 100%;
+}
+
+
+.navbar {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 15px 20px;
+}
+
+.navbar .logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.navbar .logo img {
+    height: 40px;
+}
+
+.navbar .logo h1 {
+    font-size: 1em;
+    font-weight: 600;
+}
+
+
+.editor-panel {
+    flex: 3
+}
+
+.execution-panel {
+    flex: 1;
+    padding: 0 10px;
+    background: #f4f4f4;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    min-width: 350px;
+}
+
+.program-dropdown {
+    padding: 5px;
+    font-size: 16px;
+    border-radius: 5px;
+    cursor: pointer;
+}
+
+.code-container,
+#xmlTextArea {
+    box-sizing: border-box;
+}
+
+.code-container {
+    width: 100%;
+    min-height: 45%;
+    max-height: 50%;
+    overflow-y: auto;
+    border: 1px solid #ccc;
+    background: #fff;
+    margin-top: 10px;
+}
+
+.code-container>pre{
+    border: none;
+    font-size: 1em;
+    font-family: 'IBM Plex Mono';
+    padding: 10px;
+}
+
+
+.run-button {
+    border: 1px solid #dadce0;
+    border-radius: 4px;
+    box-sizing: border-box;
+    color: #1a73e8;
+    cursor: pointer;
+    display: inline-block;
+    font: 500 14px / 36px var(--font-family);
+    padding: 0px 12px;
+    padding-top: 2px;
+    width: 82px;
+    height: 32px;
+    font-weight: 450;
+    font-size: 1em;
+}
+
+.run-button:hover {
+    background: #e8f0fe;
+    border: 1px solid #d2e3fc;
+    box-shadow: 0px 2px 6px rgba(0, 0, 0, 0.2);
+}
+
+
+.flex-space {
+    display: flex;
+    justify-content: space-between;
+    width: 100%;
+}
+
+pre.prettyprint {
+    padding: 5px 10px !important;
+}
+
+
+.preload-program {
+    flex: 1; /* Take all remaining vertical space */
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    margin-top: 10px;
+}
+
+.preload-controls {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    margin-bottom: 10px;
+    flex-wrap: wrap;
+}
+
+.preload-controls select {
+    width: 50%;
+}
+
+.preload-controls button {
+    margin-left: auto;
+    width: 150px;
+}
+
+#xmlTextArea {
+    width: 100%;
+    height: 100%;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 14px;
+    padding: 10px;
+    border: 1px solid #ccc;
+    background: #fff;
+    line-height: 1.4;
+    resize: vertical;
+    flex: 2;
+}
+
+
+#blockReader{
+    width: 1px;
+    height:1px;
+    position: absolute;
+    left: -999em;
+}

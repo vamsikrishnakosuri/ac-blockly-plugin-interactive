@@ -1,0 +1,5 @@
+[
+  { "id": "Task 1", "label": "Program 1 — Goats Cross Bridges", "file": "xml/programs/task-1.xml" },
+  { "id": "Task 2 (Incomplete)", "label": "Program 2 — Space Robot Panels",   "file": "xml/programs/task-2.xml" },
+  { "id": "Task 2 (Complete)", "label": "Program 3 — Mars Rover Samples",    "file": "xml/programs/task-2-complete.xml" }
+]
