@@ -1,11 +1,27 @@
-// import * as Blockly from "https://unpkg.com/blockly/blockly.min.js";
-// import { javascriptGenerator } from "https://unpkg.com/blockly/javascript.min.js";
-// import { pythonGenerator } from "https://unpkg.com/blockly/python.min.js";
-// import { phpGenerator } from "https://unpkg.com/blockly/php.min.js";
-// import { luaGenerator } from "https://unpkg.com/blockly/lua.min.js";
-// import { dartGenerator } from "https://unpkg.com/blockly/dart.min.js";
+// list block program xml
+const PROGRAMS = [
+    { "id": "Task1", "label": "Task 1", "file": "xml/tasks/task-1.xml" },
+    { "id": "Task2", "label": "Task 2 (Incomplete)",   "file": "xml/tasks/task-2.xml" },
+    { "id": "Task2Comp", "label": "Task 2 (Complete)",    "file": "xml/tasks/task-2-complete.xml" },
+    { "id": "Test1", "label": "Test 1",    "file": "xml/tests/test1.xml" },
+    { "id": "Test2", "label": "Test 2",    "file": "xml/tests/test2.xml" },
+];
+
+function populateProgramsToDom() {
+    const select = document.getElementById('programSelect');
+    select.innerHTML = '';
+    PROGRAMS.forEach(p => {
+        const opt = document.createElement('option');
+        opt.value = p.id;
+        opt.textContent = p.label;
+        select.appendChild(opt);
+    });
+}
+
 
 function initWorkspace() {
+    // load program as html select items
+    populateProgramsToDom();
     // Blockly Workspace Initialization
     const workspace = Blockly.inject('blocklyDiv', {
         toolbox: toolboxConfig,
@@ -21,6 +37,8 @@ function initWorkspace() {
         },
         trashcan: true
     });
+
+    window.workspace = workspace;
 
     let nav = new NavigationController();
     nav.init();
@@ -38,16 +56,39 @@ function initWorkspace() {
     document.getElementById("languageSelect").addEventListener("change", generateCode);
     document.getElementById("loadXmlButton").addEventListener("click", ()=> loadXmlToWorkspace(workspace));
     document.getElementById("programSelect").addEventListener("change", loadProgramXmlToTextArea);
+
+    // auto select & load program if query param is provided
+    autoLoadProgramFromQuery(workspace);
 }
 
-// list block program xml
-const PROGRAMS = [
-  { "id": "Task1", "label": "Task 1", "file": "xml/tasks/task-1.xml" },
-  { "id": "Task2", "label": "Task 2 (Incomplete)",   "file": "xml/tasks/task-2.xml" },
-  { "id": "Task2Comp", "label": "Task 2 (Complete)",    "file": "xml/tasks/task-2-complete.xml" },
-    { "id": "Test1", "label": "Test 1",    "file": "xml/tests/test1.xml" },
-    { "id": "Test2", "label": "Test 2",    "file": "xml/tests/test2.xml" },
-];
+function getProgramIdFromQuery() {
+    const params = new URLSearchParams(window.location.search);
+    const v = params.get('programId');
+    return v ? v.trim() : null;
+}
+
+function findProgramById(id) {
+    const target = String(id).toLowerCase();
+    return PROGRAMS.find(p => p.id.toLowerCase() === target);
+}
+
+async function autoLoadProgramFromQuery(workspace) {
+    const programId = getProgramIdFromQuery();
+    if (!programId) return;
+
+    const match = findProgramById(programId);
+    if (!match) {
+        console.warn(`No program found for id "${programId}".`);
+        return;
+    }
+
+    const select = document.getElementById('programSelect');
+    select.value = match.id;
+    await loadProgramXmlToTextArea();
+    if (workspace) {
+        loadXmlToWorkspace(workspace);
+    }
+}
 
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -92,6 +133,12 @@ function loadXmlToWorkspace(workspace, xmlTextAreaId = "xmlTextArea") {
     try {
         const xml = (Blockly.Xml.textToDom || Blockly.utils.xml.textToDom)(input.value);
         Blockly.Xml.clearWorkspaceAndLoadFromXml(xml.documentElement || xml, workspace);
+        // adjust the viewport
+        requestAnimationFrame(() => {
+            if (typeof workspace.scrollCenter === 'function'){
+                workspace.scrollCenter();
+            }
+        });
     } catch (e) {
         alert("Invalid XML format.");
         console.error(e);
