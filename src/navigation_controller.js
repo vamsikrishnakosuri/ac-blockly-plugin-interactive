@@ -18,6 +18,9 @@ import * as Constants from './constants';
 import {Navigation} from './navigation';
 import {AccessibleCursor} from "./cursors/accessible_cursor";
 import {Speech} from "./audio/speech";
+import {initBlockNumbers, disposeBlockNumbers} from './labels_and_comments/block_numbers';
+import { initStackLabels, disposeStackLabels, getStackLabelManager } from './labels_and_comments/stack_labels.js';
+import { initStackSearch, disposeStackSearch, getStackSearchManager } from './labels_and_comments/stack_search.js';
 
 /**
  * Class for registering shortcuts for keyboard navigation.
@@ -163,8 +166,14 @@ export class NavigationController {
     if (this.accessibleCursor) {
       const markerManager = Blockly.getMainWorkspace().getMarkerManager();
       markerManager.setCursor(this.accessibleCursor);
-      console.log("accessible cursor is enabled");
     }
+    
+    // Initialize block numbers and stack labels
+    initBlockNumbers(workspace);
+    // Initialize stack labels for this workspace
+    initStackLabels(workspace);
+    // Initialize stack search for this workspace
+    initStackSearch(workspace);
   }
 
   /**
@@ -176,6 +185,11 @@ export class NavigationController {
    */
   removeWorkspace(workspace) {
     this.navigation.removeWorkspace(workspace);
+    
+    // Clean up block numbers, stack labels, and stack search
+    disposeBlockNumbers();
+    disposeStackLabels();
+    disposeStackSearch(workspace);
   }
 
   /**
@@ -1737,6 +1751,8 @@ export class NavigationController {
     this.registerOut();
     this.registerLayerIn();
     this.registerLayerOut();
+    this.registerStackLabelEdit();
+    this.registerStackSearch();
     this.registerEditModeEvent();
     this.registerCursorLocation();
     this.registerAddComment();
@@ -1759,6 +1775,80 @@ export class NavigationController {
     this.registerDelete();
 
     this.registerReorderStatementShortcuts();
+  }
+
+  /**
+   * Keyboard shortcut to search stacks with Alt+Shift+G.
+   * @protected
+   */
+  registerStackSearch() {
+    /** @type {!Blockly.ShortcutRegistry.KeyboardShortcut} */
+    const stackSearchShortcut = {
+        name: Constants.SHORTCUT_NAMES.STACK_SEARCH,
+        preconditionFn: (workspace) => {
+            return workspace.keyboardAccessibilityMode;
+        },
+        callback: (workspace) => {
+            // Get the stack search manager for this workspace
+            const manager = getStackSearchManager(workspace);
+            if (!manager) {
+                console.log('No stack search manager found for workspace');
+                return false;
+            }
+            
+            // Call the handler on the manager
+            return manager.handleStackSearchShortcut_(workspace);
+        },
+    };
+
+    Blockly.ShortcutRegistry.registry.register(stackSearchShortcut);
+    
+    const altShiftG = Blockly.ShortcutRegistry.registry.createSerializedKey(
+        Blockly.utils.KeyCodes.G,
+        [Blockly.utils.KeyCodes.ALT, Blockly.utils.KeyCodes.SHIFT]
+    );
+    
+    Blockly.ShortcutRegistry.registry.addKeyMapping(
+        altShiftG,
+        stackSearchShortcut.name,
+    );
+  }
+
+  /**
+   * Keyboard shortcut to edit stack labels with Alt+I.
+   * @protected
+   */
+  registerStackLabelEdit() {
+    /** @type {!Blockly.ShortcutRegistry.KeyboardShortcut} */
+    const stackLabelEditShortcut = {
+        name: Constants.SHORTCUT_NAMES.EDIT_STACK_LABEL,
+        preconditionFn: (workspace) => {
+            return workspace.keyboardAccessibilityMode;
+        },
+        callback: (workspace) => {
+            // Get the stack label manager for this workspace
+            const manager = getStackLabelManager(workspace);
+            if (!manager) {
+                console.log('No stack label manager found for workspace');
+                return false;
+            }
+            
+            // Call the handler on the manager
+            return manager.handleStackLabelShortcut_(workspace);
+        },
+    };
+
+    Blockly.ShortcutRegistry.registry.register(stackLabelEditShortcut);
+    
+    const altI = Blockly.ShortcutRegistry.registry.createSerializedKey(
+        Blockly.utils.KeyCodes.I,
+        [Blockly.utils.KeyCodes.ALT]
+    );
+    
+    Blockly.ShortcutRegistry.registry.addKeyMapping(
+        altI,
+        stackLabelEditShortcut.name,
+    );
   }
 
   /**
