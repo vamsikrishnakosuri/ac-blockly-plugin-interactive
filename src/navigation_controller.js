@@ -167,7 +167,7 @@ export class NavigationController {
       const markerManager = Blockly.getMainWorkspace().getMarkerManager();
       markerManager.setCursor(this.accessibleCursor);
     }
-    
+
     // Initialize block numbers and stack labels
     initBlockNumbers(workspace);
     // Initialize stack labels for this workspace
@@ -185,7 +185,7 @@ export class NavigationController {
    */
   removeWorkspace(workspace) {
     this.navigation.removeWorkspace(workspace);
-    
+
     // Clean up block numbers, stack labels, and stack search
     disposeBlockNumbers();
     disposeStackLabels();
@@ -313,8 +313,10 @@ export class NavigationController {
       callback: (workspace) => {
         if (workspace.keyboardAccessibilityMode) {
           this.navigation.disableKeyboardAccessibility(workspace);
+          this.speech.update("Keyboard navigation disabled");
         } else {
           this.navigation.enableKeyboardAccessibility(workspace);
+          this.speech.update("Keyboard navigation enabled");
         }
         return true;
       },
@@ -1815,19 +1817,19 @@ export class NavigationController {
                 console.log('No stack search manager found for workspace');
                 return false;
             }
-            
+
             // Call the handler on the manager
             return manager.handleStackSearchShortcut_(workspace);
         },
     };
 
     Blockly.ShortcutRegistry.registry.register(stackSearchShortcut);
-    
+
     const altShiftG = Blockly.ShortcutRegistry.registry.createSerializedKey(
         Blockly.utils.KeyCodes.G,
         [Blockly.utils.KeyCodes.ALT, Blockly.utils.KeyCodes.SHIFT]
     );
-    
+
     Blockly.ShortcutRegistry.registry.addKeyMapping(
         altShiftG,
         stackSearchShortcut.name,
@@ -1852,19 +1854,19 @@ export class NavigationController {
                 console.log('No stack label manager found for workspace');
                 return false;
             }
-            
+
             // Call the handler on the manager
             return manager.handleStackLabelShortcut_(workspace);
         },
     };
 
     Blockly.ShortcutRegistry.registry.register(stackLabelEditShortcut);
-    
+
     const altI = Blockly.ShortcutRegistry.registry.createSerializedKey(
         Blockly.utils.KeyCodes.I,
         [Blockly.utils.KeyCodes.ALT]
     );
-    
+
     Blockly.ShortcutRegistry.registry.addKeyMapping(
         altI,
         stackLabelEditShortcut.name,
