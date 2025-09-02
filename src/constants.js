@@ -51,7 +51,11 @@ export const SHORTCUT_NAMES = {
   MOVE_WS_CURSOR_RIGHT: 'workspace_right',
   EDIT_MODE: 'edit_mode',
   EDIT_STACK_LABEL: 'editStackLabel',
-  STACK_SEARCH: 'stackSearch'
+  STACK_SEARCH: 'stackSearch',
+  CURSOR_LOC: 'cursor_location',
+  ADD_COMMENT: "add_comment",
+  MOVE_STATEMENT_UP: "keyboard_move_stmt_up",
+  MOVE_STATEMENT_DOWN: "keyboard_move_stmt_down"
 };
 
 /**

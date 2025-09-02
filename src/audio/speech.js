@@ -1,19 +1,17 @@
 import * as Blockly from 'blockly/core';
 import {Constants} from "../index";
+import * as Util from "../util/util"
 
 export class Speech {
     constructor() {
-        this.result = null;
-        this.changedResult = null;
         this.toggle = false;
-        this.readTimeouts = []
-    }
-
-    say(text) {
-        let blockReader = document.getElementById("blockReader");
-        const filler = this.toggle ? " " : "\u200B"; // toggle between space and zero-width space
-        this.toggle = !this.toggle;
-        blockReader.innerHTML = `<span>${text}${filler}</span>`;
+        this.readTimeouts = [];
+        this.dirWordMap = {
+            [Blockly.ASTNode.types.NEXT]: 'bottom',
+            [Blockly.ASTNode.types.PREVIOUS]: 'top',
+            [Blockly.ASTNode.types.INPUT]: 'value',
+            [Blockly.ASTNode.types.OUTPUT]: 'output',
+        }
     }
 
     clearPreviousSpeeches() {
@@ -22,6 +20,7 @@ export class Speech {
     }
 
     update(text) {
+        console.log("Speech: " + text);
         this.clearPreviousSpeeches();
         // Schedule single DOM change so screen reader announce exactly once
         const speak = () => {
@@ -51,419 +50,256 @@ export class Speech {
         return null;
     }
 
-    updateBlockReader(disabled, type, blockSvg, state, movement) {
-        let newStr;
-        let defaultStr;
-        let outputStr = "";
-        this.clearPreviousSpeeches();
-        let prefixTxt = this.getTextFromMoveType(movement);
+    getBaseBlock(node) {
+        if (!node) return null;
+        if (node.isConnection && node.isConnection()) {
+            return node.getLocation().getSourceBlock();
+        }
+        return typeof node.getSourceBlock === 'function' ? node.getSourceBlock() : null;
+    }
 
-        if (!blockSvg) {
-            if (!type) {
-                outputStr = " no block found"
-            } else {
-                outputStr = type + " selected";
+
+    updateBlockReader(disabled, type, blockSvg, state, movement) {
+        const prefixTxt = this.moveTypeText(movement);
+        const ws = Blockly.getMainWorkspace?.();
+        const cursor = ws?.getCursor?.();
+        const editMode = !!cursor?.editMode;
+        const curNode = cursor?.getCurNode?.();
+        const LAYER_MOVE = (
+            movement === Constants.SHORTCUT_NAMES.LAYER_IN ||
+            movement === Constants.SHORTCUT_NAMES.LAYER_OUT);
+
+        if (editMode && curNode) {
+            let placement = 'unknown connection';
+            switch (curNode.getType()) {
+                case Blockly.ASTNode.types.NEXT :
+                    placement = 'bottom connection';
+                    break;
+                case Blockly.ASTNode.types.PREVIOUS:
+                    placement = 'top connection';
+                    break;
+                case Blockly.ASTNode.types.INPUT:
+                    placement = 'value connection';
+                    break;
+                case Blockly.ASTNode.types.OUTPUT   :
+                    placement = 'output connection';
+                    break;
+                case Blockly.ASTNode.types.FIELD: {
+                    const fld = curNode.getLocation();
+                    placement = `field ${fld.name || 'unnamed'}`;
+                    break;
+                }
             }
-            this.update(prefixTxt + " " + outputStr);
+
+            const baseBlock = this.getBaseBlock(curNode);
+            const baseBlockName = baseBlock ? this.friendlyName(baseBlock) : 'block';
+
+            if (LAYER_MOVE) {
+                if (editMode && movement === Constants.SHORTCUT_NAMES.LAYER_OUT) {
+                    this.update("No connection to nest out during edit mode")
+                    return;
+                }
+
+                let containerPhrase = '';
+                let container = null;
+                if (Util.isContainerBlock(baseBlock)) {
+                    container = baseBlock;
+                } else {
+                    const { surrounding: detectedContainer } = this.containerInfo?.(baseBlock) || {};
+                    container = detectedContainer;
+                }
+
+                // fallback get direct parent
+                if (!container && baseBlock && baseBlock.getParent()) {
+                    container = baseBlock.getParent();
+                }
+
+                if (container) {
+                    containerPhrase = `moving to nested connection of ${this.friendlyName(container)}`;
+                    this.update(containerPhrase)
+                    return;
+                }
+            }
+            this.update(`${prefixTxt} on ${placement} of ${baseBlockName}`);
             return;
         }
 
-        //only update the screen reader if something has changed
-        // if (!this.changedResult) {
-        //     defaultStr = this.blockToText(type);
-        // } else {
-        //     defaultStr = this.changedResult;
-        // }
-
-        //go through the blocks on the workspace and find the matching one based on type and id
-        newStr = this.changeString(blockSvg);
-
-        if (disabled) {
-            outputStr = "disabled";
+        // workspace or stack level
+        if (!blockSvg) {
+            const out = type ? `${type} selected` : 'no block found';
+            this.update(`${prefixTxt} ${out}`);
+            return;
         }
 
-        outputStr = outputStr + " " + newStr;
 
-        if (this.getFirstStatementConnection(blockSvg) != null) {
-            outputStr = "container block " + outputStr;
-        }
+        let outStr = this.friendlyName(blockSvg);
 
-        outputStr = prefixTxt + " " + outputStr;
-        this.update(outputStr);
-    }
+        if (LAYER_MOVE) {
+            const blk = this.getBaseBlock(curNode);
+            const blkLabel = blk ? this.friendlyName(blk) : 'block';
+            let {container, _} = this.containerInfo?.(blk) || {};
 
-    stateToText(state) {
-        let txt = "";
+            // surrounding block is direct parent
+            if (!container && blk && blk.getParent()) {
+                container = blk.getParent();
+            }
 
-        switch (state) {
-            case Constants.STATE.WORKSPACE:
-                txt = "workspace";
-                break
-            case Constants.STATE.FLYOUT:
-                txt = "flyout";
-                break
-            case Constants.STATE.TOOLBOX:
-                return "toolbox";
-            default:
-                break;
-        }
-        return txt;
-    }
-
-    blockToText(type, disabled) {
-        var disabledText = "";
-        ;
-
-        switch (type) {
-            case "beep":
-                this.result = "beep frequency (A) duration (B) time until played (C)";
-                break;
-            case "controls_if"    :
-                this.result = "if (A), do container"; //added container
-                break;
-            case "controls_elseif":
-                this.result = "else if (A) container"; //added container
-                break;
-            case "controls_else":
-                this.result = "else container"; //added container
-                break;
-            case "logic_compare"  :
-                this.result = " (A) 'equals' (B)";
-                break;
-            case "logic_operation":
-                this.result = " (A) 'and/or' (B)";
-                break;
-            case "logic_negate":
-                this.result = "not (  )";
-                break;
-            case "logic_boolean":
-                this.result = "'true or false'";
-                break;
-            case "logic_null":
-                this.result = "null";
-                break;
-            case "logic_ternary":
-                this.result = "Test (A), if true do (B), if false do (C)";
-                break;
-            case "controls_repeat_ext":
-                //this.result = "repeat (blank) times container"; //added container
-                this.result = "repeat (A) times container"; //added container
-                break;
-            //added custom block speech (interface.html:545)
-            case "controls_repeat":
-                this.result = "repeat (10) times container"; //added container
-                break;
-            case "controls_whileUntil":
-                this.result = "repeat 'while or until' ( ) container"; //added container
-                break;
-            case "controls_for":
-                //this.result = "count with 'i' from (1) to (10) by (1) container"; //added container
-                this.result = "count with 'i' from (A) to (B) by (C) container"; //added container
-                break;
-            case "controls_forEach":
-                this.result = "for each item 'i' in list ( ) container"; //added container
-                break;
-            case "controls_flow_statements":
-                this.result = "'break out' of loop";
-                break;
-            case "math_number":
-                this.result = "'number'";
-                break;
-            case "math_arithmetic":
-                this.result = "(A) '+' (B)";
-                break;
-            case "math_single":
-                this.result = "'square root' of (A)";
-                break;
-            case "math_trig":
-                this.result = "'trig' ( )";
-                break;
-            case "math_constant":
-                this.result = "'pi and constants'";
-                break;
-            case "math_number_property":
-                this.result = "(number) is 'even'";
-                break;
-            case "math_change":
-                this.result = "change (variable) by 'number'";
-                break;
-            case "math_round":
-                this.result = "'round' (number)";
-                break;
-            case "math_on_list":
-                this.result = "'sum' of list ( )";
-                break;
-            case "math_modulo":
-                this.result = "remainder of (A) divided by (B)";
-                break;
-            case "math_constrain":
-                //this.result = "constrain (A) between low (1) and high (100)";
-                this.result = "constrain (A) between low (B) and high (C)";
-                break;
-            case "math_random_int":
-                //this.result = "random integer from (1) to (100)";
-                this.result = "random integer from (A) to (B)";
-                break;
-            case "math_random_float":
-                this.result = "random fraction";
-                break;
-            case "text":
-                this.result = "empty 'text' value";
-                break;
-            case "text_join":
-                this.result = "Create text with '2 or more' items";
-                //loop through blocks to add inputs dynamically
-                //check if block is selected; prevents nav from getting stuck
-                if (Blockly.common.getSelected()) {
-                    for (var i = 0; i < Blockly.common.getSelected().itemCount_ + 1; i++) {
-                        this.result += " ,() ";
-                    }
-                }
-                break;
-            case "text_append":
-                this.result = "to 'item' append text (  )";
-                break;
-            case "text_length":
-                this.result = "length of (text)";
-                break;
-            case "text_isEmpty":
-                this.result = "(A) is empty";
-                break;
-            case "text_indexOf":
-                this.result = "in (text) find 'first or last' occurence of text (A)";
-                break;
-            case "text_charAt":
-                this.result = "in text (text) get 'character at index' (A)";
-                break;
-            case "text_getSubstring":
-                this.result = "in text (text) get substring from ',index' (A) to 'index' (B) ";
-                break;
-            case "text_changeCase":
-                this.result = " to 'upper or lower' case ( )";
-                break;
-            case "text_trim":
-                this.result = "trim spaces from 'both sides' of ()";
-                break;
-            case "text_print":
-                this.result = "print ( )";
-                break;
-            case "text_prompt_ext":
-                this.result = "prompt for 'text' with message ' text'";
-                break;
-            case "lists_create_empty":
-                this.result = "create empty list";
-                break;
-            case "lists_create_with":
-                this.result = "create list with '3' items";
-                //loop through blocks to add parameters dynamically
-                //check if block is selected; prevents nav from getting stuck
-                if (Blockly.common.getSelected()) {
-                    for (var i = 0; i < Blockly.common.getSelected().itemCount_ + 1; i++) {
-                        this.result += " ,() ";
-                    }
-                }
-                break;
-            case "lists_repeat":
-                this.result = "create list with item (A) repeated (B) times";
-                break;
-            case "lists_length":
-                this.result = "length of ( ) list";
-                break;
-            case "lists_isEmpty":
-                this.result = "the list (list) is empty";
-                break;
-            case "lists_indexOf":
-                this.result = "in list (list) find 'first' occurence of item (A)";
-                break;
-            case "lists_getIndex":
-                this.result = "in list (list) 'get', 'index' (A)";
-                break;
-            case "lists_setIndex":
-                this.result = "in list (list) 'set' 'index' (A) as (B)";
-                break;
-            case "lists_getSublist":
-                this.result = "in list (list) get sub-list from 'index' (A) to ',index' (B)";
-                break;
-            case "lists_split":
-                this.result = "make 'list from text' (A) with delimiter 'comma'";
-                break;
-            case "colour_picker":
-                this.result = "colour";
-                break;
-            case "colour_random":
-                this.result = "random colour";
-                break;
-            case "colour_rgb":
-                this.result = "colour with: red 'Value', green 'value,', blue ',value' ";
-                break;
-            case "colour_blend":
-                this.result = "blend colour 1 'colour' and colour 2 'colour' with ratio 'decimal'";
-                break;
-            case "procedures_defnoreturn":
-                this.result = "function to 'do something', with '0' parameters";
-                break;
-            case "procedures_defreturn":
-                this.result = "function to 'do something', with '0' parameters then return ( )";
-                break;
-            case "procedures_ifreturn":
-                this.result = "if (A) then return (B)";
-                break;
-            case "procedures_callreturn":
-            case "procedures_callnoreturn":
-                this.result = Blockly.common.getSelected().inputList[0].fieldRow[0].text_;
-                //loop through blocks to add parameters dynamically
-                for (var i = 0; i < Blockly.common.getSelected().arguments_.length; i++) {
-                    if (i == 0) {
-                        this.result += " with ";
-                    }
-                    this.result += Blockly.common.getSelected().arguments_[i] + " '' ";
-                }
-                break;
-            case "variables_set":
-                this.result = "set 'variable' to (A)";
-                break;
-            case "variables_get":
-                this.result = "get 'A'";
-                break;
-            default:
-                console.log("speech type:" + type)
-                this.result = "custom";
-                break;
-        }
-
-        if (disabled) {
-            disabledText = "disabled ";
-        }
-        if (this.changedResult) {
-            this.result = this.changedResult;
-        }
-        return disabledText + this.result + " block.";
-    }
-
-    changeString(blockSvg) {
-        var text = [];
-        var alphabet = [' A, ', ' B, ', ' C, ', ' D, ', ' E, ', ' F, ', ' G, ', ' H, ', ' I, ', ' J, '];
-        var count = 0;
-
-        if (blockSvg.collapsed_) {
-            text.push(blockSvg.getInput('_TEMP_COLLAPSED_INPUT').fieldRow[0].text_);
-        } else {
-
-            var inputList = blockSvg.inputList;
-            var input;
-
-            for (var i = 0; i < inputList.length; i++) {
-                console.log("TYPE:" + inputList[i].type);
-                //inline child connection
-                if (inputList[i].type == 1) {
-                    input = inputList[i];
-                    //get all the fields
-                    for (var j = 0, field; field = input.fieldRow[j]; j++) {
-                        text.push(" " + this.convertSpecialCharacterToWord(field.getText()));
-                    }
-                    //get inner blocks
-                    if (input.connection) {
-                        var child = input.connection.targetBlock();
-
-                        if (child) {
-                            //TODO: make this part cleaner
-                            //replaces ? with a,b etc for screen reader ability
-                            var childStr = child.toString();
-                            var splitArr = childStr.split(' ');
-                            var newChildStr = " ";
-
-                            for (var k = 0; k < splitArr.length; k++) {
-                                console.log("splitArrK: " + "#" + splitArr[k] + "#");
-
-                                if (splitArr[k] == '?' || splitArr[k] == '???' || splitArr[k] == '') {
-                                    splitArr[k] = 'empty value';
-                                }
-                                splitArr[k] = " " + this.convertSpecialCharacterToWord(splitArr[k]);
-
-                                newChildStr += splitArr[k];
-                            }
-                            text.push(newChildStr);
-                        } else {
-                            text.push(alphabet[count]);
-                            count++;
-                        }
-                    }
-                    //shouldn't need more than 10 variables in a single block....
-                    if (count > alphabet.length - 1) {
-                        count = 0;
-                    }
-
-                }
-                //type three blocks are inner statements that don't need to be read
-                else if (inputList[i].type != 3) {
-                    input = inputList[i];
-                    for (var j = 0, field; field = input.fieldRow[j]; j++) {
-                        text.push(" " + this.convertSpecialCharacterToWord(field.getText()));
-                    }
-                }
-
+            if (container) {
+                outStr = `${prefixTxt} into the first child block ` +
+                    `${blkLabel} inside ${this.friendlyName(container)}`
+                this.update(outStr);
+                return;
             }
         }
 
-        text = text.join(' ').trim(text.join(' ')) || alphabet[count];
-        if (text == "“    ”") {
-            text = "“ empty string ”";
+        // add speech for container‑type blocks
+        if (this.getFirstStatementConnection(blockSvg)) {
+            outStr = `container block ${outStr}`;
         }
-        console.log(">>>: string: " + text);
-        return text;
+
+        this.update(`${prefixTxt} ${outStr}`);
     }
 
-    convertSpecialCharacterToWord(specialCharacter) {
-        /*
-        TO-DO: replace strings with their variables names from ../msg/ files for internationalization
-        e.g %{BKY_MATH_ADDITION_SYMBOL}"  should replace \u002B below
-        */
-        var wordEquivalent;
 
-        switch (specialCharacter) {
-            case "=":
-                wordEquivalent = "equals";
-                break;
-            case "\u2260":
-                wordEquivalent = "is not equal to";
-                break;
-            case "\u200F<":
-                wordEquivalent = "is less than";
-                break;
-            case "\u200F\u2264":
-                wordEquivalent = "is less than or equal to";
-                break;
-            case "\u200F>":
-                wordEquivalent = "is greater than";
-                break;
-            case "\u200F\u2265":
-                wordEquivalent = "is greater than or equal to";
-                break;
-            case '\u002B':
-                wordEquivalent = "plus";
-                break;
-            case '\u002D':
-                wordEquivalent = "minus";
-                break;
-            case "×":
-                wordEquivalent = "times";
-                break;
-            case '\u00F7':
-                wordEquivalent = "divided by";
-                break;
-            case "^" :
-                wordEquivalent = "to the power of";
-                break;
+    /**
+     * Convert a block  into a friendly spoken phrase.
+     * @param {!Blockly.Block} blk  A **BlockSvg** (workspace) or **Block** (fly‑out)
+     * @returns {string}
+     */
+     blockToText(blk) {
+        if (!blk) {
+            return 'unknown block';
+        }
+
+        let self = this;
+
+        function fieldPhrase(blk, fieldName, def = '') {
+            const f = blk.getField(fieldName);
+            return f ? f.getText() : def;
+        }
+
+        function inputsPhrase(blk, inputName, placeholder = `(${inputName})`) {
+            const inp = blk.getInput(inputName);
+            if (!inp) {
+                return placeholder;
+            }
+            const targetBlock = inp.connection && inp.connection.targetBlock();
+            if (!targetBlock) {
+                return placeholder;
+            }
+            return self.blockToText(targetBlock);
+        }
+
+        const disabledPrefix = blk.isEnabled && !blk.isEnabled() ? 'disabled ' : '';
+        const type= blk.type;
+
+        switch (type) {
+            // LOGIC
+            case 'controls_if': {
+                const cond = inputsPhrase(blk, 'IF0', '(A)');
+                return `${disabledPrefix}if ${cond} then`;
+            }
+            case 'logic_compare': { // (A) equals (B)  OR  1 = 2
+                const opWord = {
+                    EQ  : 'equals',
+                    NEQ : 'does not equal',
+                    LT  : 'is less than',
+                    LTE : 'is less than or equal to',
+                    GT  : 'is greater than',
+                    GTE : 'is greater than or equal to',
+                }[fieldPhrase(blk, 'OP')] || fieldPhrase(blk, 'OP');
+                const left  = inputsPhrase(blk, 'A', '(A)');
+                const right = inputsPhrase(blk, 'B', '(B)');
+                return `${disabledPrefix}${left} ${opWord} ${right}`;
+            }
+            case 'logic_operation': {          // (A) and (B)
+                const op = fieldPhrase(blk, 'OP', 'and').toLowerCase();
+                return `${disabledPrefix}${inputsPhrase(blk,'A','(A)')} 
+                ${op} ${inputsPhrase(blk,'B','(B)')}`;
+            }
+            case 'logic_negate':
+                return `${disabledPrefix}not ${inputsPhrase(blk, 'BOOL', '(condition)')}`;
+            case 'logic_boolean':
+                return `${disabledPrefix}${fieldPhrase(blk, 'BOOL', 'true')}`;
+            case 'logic_ternary': {
+                const test= inputsPhrase(blk,'IF','(test)');
+                const ifThen= inputsPhrase(blk,'THEN','(A)');
+                const ifElse= inputsPhrase(blk,'ELSE','(B)');
+                return `${disabledPrefix}if ${test} then ${ifThen} else ${ifElse}`;
+            }
+            // LOOPS
+            case 'controls_repeat_ext': {
+                const times = inputsPhrase(blk, 'TIMES', '(A)');
+                return `${disabledPrefix}repeat ${times} times`;
+            }
+            case 'controls_whileUntil': {
+                const mode = fieldPhrase(blk,'MODE','while');
+                const cond = inputsPhrase(blk,'BOOL','(condition)');
+                return `${disabledPrefix}repeat ${mode} ${cond}`;
+            }
+            case 'controls_for': {
+                const varName = fieldPhrase(blk,'VAR','i');
+                const from = inputsPhrase(blk,'FROM','(A)');
+                const to   = inputsPhrase(blk,'TO','(B)');
+                const by   = inputsPhrase(blk,'BY','(C)');
+                return `${disabledPrefix}count with ${varName} from ${from} to ${to} by ${by}`;
+            }
+            case 'controls_flow_statements':
+                return `${disabledPrefix}${fieldPhrase(blk,'FLOW','break out')} of loop`;
+            // MATH
+            case 'math_number':
+                return `${disabledPrefix}${fieldPhrase(blk,'NUM','number')}`;
+            case 'math_arithmetic': {
+                const sym = {
+                    ADD : '+', MINUS : '-', MULTIPLY : '×', DIVIDE : '÷', POWER : '^'
+                }[fieldPhrase(blk,'OP')] || fieldPhrase(blk,'OP');
+                return `${disabledPrefix}${inputsPhrase(blk,'A','(A)')} 
+                ${sym} ${inputsPhrase(blk,'B','(B)')}`;
+            }
+            case 'math_single': {
+                const op = fieldPhrase(blk,'OP','square root of');
+                return `${disabledPrefix}${op} ${inputsPhrase(blk,'NUM','(A)')}`;
+            }
+            case 'math_modulo':
+                return `${disabledPrefix}remainder of ${inputsPhrase(blk,'DIVIDEND','(A)')} 
+                divided by ${inputsPhrase(blk,'DIVISOR','(B)')}`;
+            case 'math_random_int':
+                return `${disabledPrefix}random integer from ${inputsPhrase(blk,'FROM','(A)')} 
+                to ${inputsPhrase(blk,'TO','(B)')}`;
+            case 'math_random_float':
+                return `${disabledPrefix}random fraction`;
+            // TEXT
+            case 'text':
+                return `${disabledPrefix}text value`;
+            case 'text_join': {
+                const n = blk.itemCount_ || 2;
+                return `${disabledPrefix}create text with ${n} items`;
+            }
+            case 'text_length':
+                return `${disabledPrefix}length of ${inputsPhrase(blk,'VALUE','(text)')}`;
+            case 'text_print':
+                return `${disabledPrefix}print ${inputsPhrase(blk,'TEXT','(text)')}`;
+            // LISTS
+            case 'lists_create_with': {
+                const n = blk.itemCount_ || 0;
+                if (n === 0)
+                    return `${disabledPrefix}create empty list`;
+                return `${disabledPrefix}create list with ${n} items`;
+            }
+            case 'lists_length':
+                return `${disabledPrefix}length of list`;
+            // VARIABLES & PROCEDURES
+            case 'variables_get':
+                return `${disabledPrefix}get variable ${fieldPhrase(blk,'VAR','name')}`;
+            case 'variables_set':
+                return `${disabledPrefix}set variable ${fieldPhrase(blk,'VAR','name')} 
+                to ${inputsPhrase(blk,'VALUE','(value)')}`;
             default:
-                wordEquivalent = specialCharacter;
-                break;
+                return `${disabledPrefix}${type}`;
         }
-
-        return wordEquivalent;
-
     }
 
-    getTextFromMoveType(type) {
+    moveTypeText(type) {
         if (!type) return "";
 
         switch (type) {
@@ -551,9 +387,7 @@ export class Speech {
 
             default: {
                 const blockSvg = node.getSourceBlock();
-                const disabled = !blockSvg.isEnabled();
-                label = this.blockToText(blockSvg.type, disabled);
-
+                label = this.blockToText(blockSvg);
                 // fallback
                 if (!label || label.toLowerCase().startsWith('custom')) {
                     label =
@@ -583,29 +417,28 @@ export class Speech {
         const dirstrt = (direction === Constants.SHORTCUT_NAMES.PREVIOUS)
             ? 'back'
             : '';
-        const phrase = `Move ${dirstrt} to ${categoryName} category, item named ${label} selected`;
+        const phrase = `Move ${dirstrt} to item named ${label} under ${categoryName} category`;
         this.update(phrase);
     }
 
 
     friendlyName(blkSvg) {
         if (!blkSvg) return '';
-        const disabled = !blkSvg.isEnabled();
-        let txt = this.blockToText(blkSvg.type, disabled);
+        let txt = this.blockToText(blkSvg);
         if (!txt || txt.toLowerCase().startsWith('custom')) {
-            txt =
-                blkSvg.toString().trim() ||
+            txt = blkSvg.toString().trim() ||
                 (blkSvg.tooltip && blkSvg.tooltip.trim()) ||
                 blkSvg.type;
         }
-        return txt;
+        return txt + ' block';
     };
 
     announceInsertedBlock(newBlock, originalBlock, dirKey='') {
-        if (!newBlock) return;
+        if (!newBlock) {
+            return;
+        }
 
         const newBlockSvg = newBlock.getSourceBlock();
-
         const newLabel = this.friendlyName(newBlockSvg);
 
         if (!originalBlock) {
@@ -614,7 +447,6 @@ export class Speech {
         }
 
         const refLabel = this.friendlyName(originalBlock);
-
         const dirWordMap = {
             TOP   : 'above',
             BOTTOM: 'below',
@@ -627,7 +459,9 @@ export class Speech {
 
 
     announceMark(node, originalBlock = null, dirKey = '') {
-        if (!node) return;
+        if (!node) {
+            return;
+        }
         if (originalBlock && dirKey) {
             const dirWordMap = {
                 TOP   : 'top',
@@ -645,8 +479,169 @@ export class Speech {
             return;
         }
 
-        this.update(`Marked top connection of ${this.friendlyName(node.getSourceBlock && node.getSourceBlock())}`);
+        this.update(`Marked top connection of ` +
+            `${this.friendlyName(node.getSourceBlock && node.getSourceBlock())}`);
     }
 
+    announceReturnToWorkspace(node) {
+        let phrase = 'Toolbox closed. ';
 
+        if (!node) {
+            this.update(`${phrase} Cursor back on workspace`);
+            return;
+        }
+
+        if (node.getType() === Blockly.ASTNode.types.WORKSPACE) {
+            this.update(`${phrase} Cursor back on workspace`);
+            return;
+        }
+
+        const blk = node.getSourceBlock && node.getSourceBlock();
+        phrase += `Cursor back on ${this.friendlyName(blk)}`;
+        this.update(phrase);
+    }
+
+    ordinalWord(n) {
+        const r10 = n % 10, r100 = n % 100;
+        if (r10 === 1 && r100 !== 11) return `${n}st`;
+        if (r10 === 2 && r100 !== 12) return `${n}nd`;
+        if (r10 === 3 && r100 !== 13) return `${n}rd`;
+        return `${n}th`;
+    }
+
+    containerInfo(block) {
+        if (!block) {
+            return {
+                surrounding: null,
+                indexInside: null,
+                stackIndex: null
+            };
+        }
+
+        const root = block.getRootBlock(); // top-block of current stack
+        const stacks= block.workspace.getTopBlocks(true); // array of top stack blocks in visual order
+        const stackIndex = stacks.indexOf(root) + 1 || null;
+
+        // value block then return with attached parent
+        if (block.outputConnection && block.outputConnection.isConnected()) {
+            const parent = block.outputConnection.targetBlock();
+            return {
+                surrounding: parent,
+                indexInside: null,
+                stackIndex
+            };
+        }
+
+        // statement block of a container block
+        if (block.getPreviousBlock()) {
+            // walks up upward until joining connection to parent is found
+            let child = block;
+            let parent = child.getParent();
+            while (parent) {
+                const prevConn= child.previousConnection;
+                if (prevConn && prevConn.targetConnection &&
+                    prevConn.targetConnection.type === Blockly.NEXT_STATEMENT) {
+                    break; // found container
+                }
+                child  = parent;
+                parent = parent.getParent();
+            }
+
+            if (parent) {
+                // first block plugged into that statement input
+                const stmtInput = parent.inputList.find(
+                    inp => inp.connection && inp.connection.type === Blockly.NEXT_STATEMENT);
+                let idx = 0;
+                let firstBlock = stmtInput && stmtInput.connection ? stmtInput.connection.targetBlock() : null;
+                // traverse and count position until current block not found
+                while (firstBlock) {
+                    if (!firstBlock.outputConnection && !firstBlock.isShadow()) {
+                        idx++;
+                        if (firstBlock === block) break;
+                    }
+                    firstBlock = firstBlock.getNextBlock();
+                }
+                return {surrounding: parent, indexInside: idx || null, stackIndex};
+            }
+        }
+
+        // only block in stack maybe
+        return {
+            surrounding: block.getParent() || null,
+            indexInside: null,
+            stackIndex};
+    }
+
+    announceCursorLoc(node) {
+        if (!node) {
+            this.update('Cursor is on workspace.'); return;
+        }
+
+        const srcBlock = node.getSourceBlock && node.getSourceBlock();
+        const containerBlockInfo= this.containerInfo(srcBlock);
+        let phrase  = '';
+
+        switch (node.getType()) {
+            case Blockly.ASTNode.types.STACK:
+                phrase = `The cursor is on the ${this.ordinalWord(containerBlockInfo.stackIndex)} stack`;
+                this.update(phrase);
+                return;
+            case Blockly.ASTNode.types.WORKSPACE:
+                phrase = `The cursor is on the workspace`;
+                this.update(phrase);
+                return;
+            case Blockly.ASTNode.types.BLOCK:
+                phrase = `The cursor is on block: ${this.friendlyName(srcBlock)}`; break;
+            case Blockly.ASTNode.types.FIELD: {
+                const fld = node.getLocation();
+                phrase = `The cursor is on field ${fld.name || 'unnamed'} of ${this.friendlyName(srcBlock)}`;
+                break;
+            }
+            case Blockly.ASTNode.types.NEXT:
+            case Blockly.ASTNode.types.PREVIOUS:
+            case Blockly.ASTNode.types.INPUT:
+            case Blockly.ASTNode.types.OUTPUT: {
+                const dir = this.dirWordMap[node.getType()];
+                phrase = `The cursor is on the ${dir} connection of ${this.friendlyName(srcBlock)}`;
+                break;
+            }
+            default:
+                phrase = 'Cursor location unknown.';
+        }
+
+        if (containerBlockInfo.surrounding) {
+            if (containerBlockInfo.indexInside != null) {
+                phrase += `, ${this.ordinalWord(containerBlockInfo.indexInside)} block inside ${this.friendlyName(containerBlockInfo.surrounding)}`;
+            } else {
+                phrase += `, inside of ${this.friendlyName(containerBlockInfo.surrounding)}`;
+            }
+        }
+
+        // todo: add stack index for now, when stack labeling code merge change here
+        if (containerBlockInfo.stackIndex != null) {
+            phrase += `, under the ${this.ordinalWord(containerBlockInfo.stackIndex)}) stack`;
+        }
+
+        this.update(phrase);
+    }
+
+    announceEditModeToggle(editMode, curNode) {
+        if (editMode === null) {
+            this.update("Edit mode can be activated on blocks only");
+            return;
+        }
+
+        const block = curNode?.getSourceBlock?.();
+
+        if (block) {
+            const label = this.friendlyName(block);
+            const phrase = editMode
+                ? `Entering edit mode on ${label}`
+                : `Leaving edit mode on ${label}`;
+            this.update(phrase);
+        } else {
+            const fallback = editMode ? "Entering edit mode" : "Leaving edit mode";
+            this.update(fallback);
+        }
+    }
 }

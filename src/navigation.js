@@ -531,7 +531,7 @@ export class Navigation {
   }
 
   /**
-   * Moves the cursor to the top connection point on on the first top block.
+   * Moves the cursor to the top connection point on the first top block.
    * If the workspace is empty, moves the cursor to the default location on
    * the workspace.
    * @param {!Blockly.WorkspaceSvg} workspace The main Blockly workspace.
@@ -598,8 +598,9 @@ export class Navigation {
     }
 
     this.focusWorkspace(workspace);
-    workspace.getCursor().setCurNode(Blockly.ASTNode.createTopNode(newBlock));
-    workspace.getCursor().setEditingBlock(Blockly.ASTNode.createBlockNode(newBlock));
+    const blockNode = Blockly.ASTNode.createBlockNode(newBlock);
+    workspace.getCursor().setCurNode(blockNode);
+    workspace.getCursor().setEditingBlock(blockNode);
     this.removeMark(workspace);
   }
 
@@ -935,7 +936,6 @@ export class Navigation {
    * @param {?Blockly.RenderedConnection} destConnection The connection to be
    *     moved to.
    * @returns {boolean} True if the connections were connected, false otherwise.
-   * @protected
    */
   moveAndConnect(movingConnection, destConnection) {
     if (!movingConnection || !destConnection) {
@@ -1288,6 +1288,33 @@ export class Navigation {
       throw new Error('No callback function found for flyout button.');
     }
   }
+
+  /**
+   * If destConnection already has a child attached, remove it (optionally dispose).
+   * Works for INPUT_VALUE, NEXT/PREV, and OUTPUT sides uniformly.
+   * @param {!Blockly.RenderedConnection} destConnection
+   * @param {boolean=} disposeChild If true (default), the detached child block is disposed.
+   * @package
+   */
+  ejectConnectedBlock(destConnection, disposeChild = true) {
+    if (!destConnection || !destConnection.isConnected || !destConnection.isConnected()) return;
+    // infer inferior child connection
+    const childConn = destConnection.isSuperior()
+        ? destConnection.targetConnection
+        : destConnection;
+    const childBlock = childConn && childConn.getSourceBlock ? childConn.getSourceBlock() : null;
+    if (!childBlock) return;
+    Blockly.Events.setGroup(true);
+    try {
+      childBlock.unplug(true);
+      if (disposeChild) {
+        childBlock.dispose(true);
+      }
+    } finally {
+      Blockly.Events.setGroup(false);
+    }
+  }
+
 
   /**
    * Removes the change listeners on all registered workspaces.
