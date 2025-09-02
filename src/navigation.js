@@ -599,8 +599,11 @@ export class Navigation {
 
     this.focusWorkspace(workspace);
     const blockNode = Blockly.ASTNode.createBlockNode(newBlock);
-    workspace.getCursor().setCurNode(blockNode);
-    workspace.getCursor().setEditingBlock(blockNode);
+    const cursor = workspace.getCursor?.()
+    cursor?.suppressNextScroll();
+    cursor?.setCurNode(blockNode);
+    cursor?.suppressNextScroll();
+    cursor?.setEditingBlock(blockNode);
     this.removeMark(workspace);
   }
 

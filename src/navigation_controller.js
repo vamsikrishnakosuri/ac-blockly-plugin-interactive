@@ -267,6 +267,7 @@ export class NavigationController {
               let flyoutCursor = flyout.getWorkspace().getCursor();
               if (flyoutCursor) {
                 const prevNode = flyoutCursor.prev();
+                this._centerFlyoutOnNode(workspace, prevNode);
                 node = prevNode ? prevNode.in() : null;
               }
               this.speech.announceFlyoutItem(
@@ -376,6 +377,20 @@ export class NavigationController {
     );
   }
 
+  _centerFlyoutOnNode(workspace, node) {
+    const flyoutWS = workspace.getFlyout?.()?.getWorkspace?.();
+    if (!flyoutWS || !node) return;
+
+    const type = node.getType?.();
+    if (type === Blockly.ASTNode.types.STACK || type === Blockly.ASTNode.types.BLOCK) {
+      const block = node.getLocation?.();
+      if (block?.id) {
+        flyoutWS.centerOnBlock(block.id,true);
+      }
+    }
+  }
+
+
   /**
    * Keyboard shortcut to go to the next location when in keyboard navigation
    * mode.
@@ -408,6 +423,7 @@ export class NavigationController {
               let flyoutCursor = flyout.getWorkspace().getCursor();
               if (flyoutCursor) {
                 const nextNode = flyoutCursor.next();
+                this._centerFlyoutOnNode(workspace, nextNode);
                 node = nextNode ? nextNode.in() : null;
               }
               this.speech.announceFlyoutItem(
@@ -1181,7 +1197,9 @@ export class NavigationController {
 
         // move cursor to the newly attached block and set edit focus
         const node = Blockly.ASTNode.createBlockNode(blockToAttach);
+        cursor?.suppressNextScroll?.();
         cursor?.setCurNode(node);
+        cursor?.suppressNextScroll?.();
         cursor?.setEditingBlock?.(node);
 
         // TODO: make speech more intuitive
@@ -1296,7 +1314,7 @@ export class NavigationController {
             targetBlock.unplug(false);
             try {
               const xy = targetBlock.getRelativeToSurfaceXY?.();
-              if (xy) targetBlock.moveTo(new Blockly.utils.Coordinate(xy.x + 20, xy.y + 20));
+              if (xy) targetBlock.moveTo(new Blockly.utils.Coordinate(xy.x + 100, xy.y + 80));
             } catch {}
           }
           targetBlock.bringToFront();
@@ -1686,6 +1704,7 @@ export class NavigationController {
         // focus on moved block
         const cursor = block.workspace.getCursor?.();
         const node = Blockly.ASTNode.createBlockNode(block);
+        cursor?.suppressNextScroll?.();
         cursor.setCurNode(node);
         this.speech.update('Moved current block down.'); // TODO: enhance speech
         return true;
@@ -1728,6 +1747,7 @@ export class NavigationController {
         // ]focus on moved block
         const cursor = block.workspace.getCursor?.();
         const node = Blockly.ASTNode.createBlockNode(block);
+        cursor?.suppressNextScroll?.();
         cursor.setCurNode(node);
         this.speech.update('Moved block up.'); // TODO: enhance speech
         return true;
