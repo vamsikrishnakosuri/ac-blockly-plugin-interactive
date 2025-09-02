@@ -1,0 +1,97 @@
+<xml xmlns="https://developers.google.com/blockly/xml">
+  <variables>
+    <variable id="counterVar">count</variable>
+  </variables>
+  <block type="variables_set" id="set1" x="130" y="50">
+    <field name="VAR" id="counterVar">count</field>
+    <value name="VALUE">
+      <block type="math_number" id="n10">
+        <field name="NUM">0</field>
+      </block>
+    </value>
+    <next>
+      <block type="controls_whileUntil" id="while1">
+        <field name="MODE">WHILE</field>
+        <value name="BOOL">
+          <block type="logic_compare" id="cmpWhile">
+            <field name="OP">LTE</field>
+            <value name="A">
+              <block type="variables_get" id="gWhile">
+                <field name="VAR" id="counterVar">count</field>
+              </block>
+            </value>
+            <value name="B">
+              <block type="math_number" id="nTarget">
+                <field name="NUM">3</field>
+              </block>
+            </value>
+          </block>
+        </value>
+        <statement name="DO">
+          <block type="text_print" id="7YML%}DM*:b:LSxDkU/?">
+            <value name="TEXT">
+              <shadow type="text" id="p?sOnzb^aQTba:NKS0Fv">
+                <field name="TEXT">Jack plants a magic bean.</field>
+              </shadow>
+            </value>
+            <next>
+              <block type="text_print" id="fqDB?=W?d|3;*l,TS_Fi">
+                <value name="TEXT">
+                  <shadow type="text" id="Ah%:~3IjIy|]T3%?(7p)">
+                    <field name="TEXT">Water the seed</field>
+                  </shadow>
+                </value>
+                <next>
+                  <block type="variables_set" id="inc1">
+                    <field name="VAR" id="counterVar">count</field>
+                    <value name="VALUE">
+                      <block type="math_arithmetic" id="add1">
+                        <field name="OP">ADD</field>
+                        <value name="A">
+                          <block type="variables_get" id="g10">
+                            <field name="VAR" id="counterVar">count</field>
+                          </block>
+                        </value>
+                        <value name="B">
+                          <block type="math_number" id="one1">
+                            <field name="NUM">1</field>
+                          </block>
+                        </value>
+                      </block>
+                    </value>
+                  </block>
+                </next>
+              </block>
+            </next>
+          </block>
+        </statement>
+      </block>
+    </next>
+  </block>
+  <block type="controls_if" id="if1" x="130" y="330">
+    <value name="IF0">
+      <block type="logic_compare" id="cmp1">
+        <field name="OP">EQ</field>
+        <value name="A">
+          <block type="variables_get" id="g11">
+            <field name="VAR" id="counterVar">count</field>
+          </block>
+        </value>
+        <value name="B">
+          <block type="math_number" id="nF1">
+            <field name="NUM">3</field>
+          </block>
+        </value>
+      </block>
+    </value>
+    <statement name="DO0">
+      <block type="text_print" id="n?za:xNy#vwmji`fA=nZ">
+        <value name="TEXT">
+          <shadow type="text" id="lg-i%IwG*~A=Z-_5xlgB">
+            <field name="TEXT">All 3 beans are planted. The stalk can grow!</field>
+          </shadow>
+        </value>
+      </block>
+    </statement>
+  </block>
+</xml>

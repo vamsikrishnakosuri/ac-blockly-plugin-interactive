@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BP - Blockly Playground</title>
+    <link rel="stylesheet" href="main.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" integrity="sha512-Evv84Mr4kqVGRNSgIGL/F/aIDqQb7xQ2vcrdIwxfjThSH8CSR7PBEakCr51Ck+w+/U6swU2Im1vVX0SVk9ABhg==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <script src="https://cdn.jsdelivr.net/gh/google/code-prettify@master/loader/run_prettify.js"></script>
+    <script src="./lib/blockly_compressed.js"></script>
+    <script src="./lib/blocks_compressed.js"></script>
+    <script src="./lib/javascript_compressed.js"></script>
+    <script src="./lib/python_compressed.js"></script>
+    <script src="./lib/php_compressed.js"></script>
+    <script src="./lib/lua_compressed.js"></script>
+    <script src="./lib/dart_compressed.js"></script>
+    <script src="./lib/msg/en.js"></script>
+    <script src="./keyboard-navigation/index.js"></script>
+    <script src="./js/Toolbox.js"></script>
+    <script src="./js/main.js"></script>
+</head>
+<body onload="initWorkspace()">
+  <div id="root">
+    <nav class="navbar">
+        <div class="logo">
+            <img src="blockly.png" class="logo" alt="Blockly Logo">
+            <h1>Blockly Playground</h1>
+        </div>
+    </nav>
+    <div style="display: flex; height: 90%;">
+        <div role="application"
+             tabindex="0"
+             aria-label="Blockly workspace"
+             style="flex:2; position:relative;">
+            <div id="blocklyDiv" class="editor-panel"></div>
+        </div>
+        <div id="blockReader"
+             class="visually-hidden"
+             aria-live="assertive"
+             aria-atomic="true"
+             role="status"></div>
+        <div class="execution-panel">
+            <div class="flex-space">
+                <button id="runButton" class="run-button">Run <i class="fas fa-play-circle"></i></button>
+                <select id="languageSelect" class="program-dropdown">
+                    <option value="javascript">JavaScript</option>
+                    <option value="python">Python</option>
+                    <option value="php">PHP</option>
+                    <option value="lua">Lua</option>
+                    <option value="dart">Dart</option>
+                    <option value="xml">XML</option>
+                </select>
+            </div>
+            <div class="code-container">
+                <pre id="codeOutput" class="prettyprint" style="border: none"><code class="language-javascript"></code></pre>
+            </div>
+            <div class="preload-program">
+                <div class="preload-controls">
+                    <select id="programSelect" class="program-dropdown">
+                        <option value="">-Select Program-</option>
+                    </select>
+                    <button id="loadXmlButton" class="run-button">Load Program</button>
+                </div>
+                <textarea id="xmlTextArea" rows="10"></textarea>
+            </div>
+        </div>
+    </div>
+  </div>
+</body>
+</html>
