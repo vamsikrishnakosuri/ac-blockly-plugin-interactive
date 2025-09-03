@@ -767,7 +767,57 @@ export class NavigationController {
       callback: (workspace) => {
         switch (this.navigation.getState(workspace)) {
           case Constants.STATE.WORKSPACE:
+            // must be in Edit mode
+            const cursor = workspace && workspace.getCursor ? workspace.getCursor() : null;
+            if (!cursor || !cursor?.editMode) {
+              this.speech.update('Blocks can be disconnected only in Edit mode. Press E to activate Edit mode.');
+              return true;
+            }
+
+            // must be on a connection
+            const node = cursor.getCurNode ? cursor.getCurNode() : null;
+            /** @type {!Blockly.RenderedConnection} */ const conn = node?.getLocation();
+            if (!conn?.isConnected?.() || !conn.targetConnection) {
+              this.speech.update('Move to a connection to disconnect blocks.');
+              return true;
+            }
+
+            // identify the pair before we disconnect for preparing speech
+            const isSuperior = conn.isSuperior && conn.isSuperior();
+            const sup = isSuperior ? conn : conn.targetConnection;     // host side
+            const inf = isSuperior ? conn.targetConnection : conn;     // plug side
+            const parentBlock = sup && sup.getSourceBlock ? sup.getSourceBlock() : null;
+            const childBlock = inf && inf.getSourceBlock ? inf.getSourceBlock() : null;
+            const say = (b) => this.speech.friendlyName(b) || 'block';
+            const getInputForConnection = (c) => {
+              if (!c) return null;
+              if (typeof c.getParentInput === 'function') return c.getParentInput();
+              const blk = c.getSourceBlock && c.getSourceBlock();
+              if (!blk || !blk.inputList) return null;
+              for (let i = 0; i < blk.inputList.length; i++) {
+                if (blk.inputList[i].connection === c) return blk.inputList[i];
+              }
+              return null;
+            };
+
+            // build speech
+            let announcement;
+            if (sup && sup.type === Blockly.INPUT_VALUE) {
+              const input = getInputForConnection(sup);
+              const slot = (input && input.name) ? ('value input ' + input.name) : 'a value input';
+              announcement = `Disconnected ${say(childBlock)} from ${slot} of ${say(parentBlock)}.`;
+            } else if (sup && sup.type === Blockly.NEXT_STATEMENT) {
+              announcement = `Disconnected ${say(childBlock)} from the next connection of ${say(parentBlock)}.`;
+            } else {
+              announcement = `Disconnected ${say(childBlock)} from a connection of ${say(parentBlock)}.`;
+            }
+
+            const groupId = 'acc-disconnect-' + Date.now();
+            Blockly.Events.setGroup(groupId);
             this.navigation.disconnectBlocks(workspace);
+            Blockly.Events.setGroup(false);
+
+            this.speech.update(announcement);
             return true;
           default:
             return false;
@@ -776,9 +826,14 @@ export class NavigationController {
     };
 
     Blockly.ShortcutRegistry.registry.register(disconnectShortcut);
-    Blockly.ShortcutRegistry.registry.addKeyMapping(
+    const altX = Blockly.ShortcutRegistry.registry.createSerializedKey(
         Blockly.utils.KeyCodes.X,
+        [Blockly.utils.KeyCodes.ALT],
+    );
+    Blockly.ShortcutRegistry.registry.addKeyMapping(
+        altX,
         disconnectShortcut.name,
+        true,
     );
   }
 
@@ -1021,6 +1076,20 @@ export class NavigationController {
         return false;
       },
       callback: (workspace) => {
+        // if a block is detached already
+        if (this.detachedBlock && !this.detachedBlock.isDisposed?.()) {
+          const isMac = /mac/i.test(
+              `${navigator.platform || ''} ${navigator.userAgent || ''}`
+          );
+          const modPlusV = `${isMac ? 'Command' : 'Ctrl'}+V`;
+          this.speech.update(
+              `Copy is not allowed while you already have a detached block. ` +
+              `Enter edit mode on a block and press ${modPlusV} to attach it, ` +
+              `or press Ctrl+Z to cancel the detached block.`
+          );
+          return true; // handled
+        }
+
         const sourceBlock = /** @type {Blockly.BlockSvg} */ (
             workspace.getCursor().getCurNode().getSourceBlock()
         );
@@ -1244,10 +1313,6 @@ export class NavigationController {
    * @protected
    */
   registerCut() {
-    const hasDetachedBlock = () => {
-      return !!(this.detachedBlock && !this.detachedBlock.isDisposed?.());
-    }
-
     /** @type {!Blockly.ShortcutRegistry.KeyboardShortcut} */
     const cutShortcut = {
       name: Constants.SHORTCUT_NAMES.CUT,
@@ -1275,7 +1340,7 @@ export class NavigationController {
           return false;
         }
         // already has detached block
-        if (hasDetachedBlock()) {
+        if (this.detachedBlock && !this.detachedBlock.isDisposed?.()) {
           this.speech.update('You already have a detached block. Enter edit mode and press Ctrl+V to attach it, or press Ctrl+Z to cancel.');
           return true;
         }
@@ -1301,6 +1366,13 @@ export class NavigationController {
           targetBlock = inferior?.getSourceBlock?.() || block;
         }
 
+
+        // capture the context before we unplug, so we know where to focus after
+        const preParent = targetBlock.getParent?.() || null;          // null, target was top of a stack
+        const preRoot   = targetBlock.getRootBlock?.() || targetBlock; // top block of the source stack
+        const preBelow  = targetBlock.getNextBlock?.() || null;        // block below, if target was top
+        const txyBefore = targetBlock.getRelativeToSurfaceXY?.() || {x:0, y:0};
+
         Blockly.Events.setGroup(true);
 
         try {
@@ -1310,30 +1382,67 @@ export class NavigationController {
             targetBlock.unplug(false);
             try {
               const xy = targetBlock.getRelativeToSurfaceXY?.();
-              if (xy) targetBlock.moveTo(new Blockly.utils.Coordinate(xy.x + 100, xy.y + 80));
-            } catch {}
+              if (xy) targetBlock.moveTo(new Blockly.utils.Coordinate(xy.x + 250, xy.y + 50));
+            } catch {
+            }
           }
-          targetBlock.bringToFront();
+          // targetBlock.bringToFront();
           // disable detached block to mark it as cut
           targetBlock.setEnabled?.(false);
           // stash detached block
           this.detachedBlock = targetBlock;
           this.detachedWorkspace = targetBlock.workspace;
-          const xy = targetBlock.getRelativeToSurfaceXY?.();
-          if (xy) {
-            let focusNode = Blockly.ASTNode.createWorkspaceNode(
-                workspace,
-                new Blockly.utils.Coordinate(xy.x, xy.y)
-            );
-            if (focusNode) cursor?.setCurNode(focusNode);
+
+
+          // decide new cursor location
+          let focusNode = null;
+          let announce = '';
+
+          if (preParent) {
+            // Case 1: detached from middle of a stack => focus that original stack
+            const stackTop = preRoot && preRoot !== targetBlock ?
+                preRoot : preParent.getRootBlock?.() || preParent;
+            focusNode = Blockly.ASTNode.createStackNode(stackTop);
+            announce = `Focus moved to the stack: ${this.speech.friendlyName(stackTop)}.`;
+          } else if (preBelow) {
+            // Case 2: detached from top of a stack => focus that original stack
+            focusNode = Blockly.ASTNode.createStackNode(preBelow);
+            announce = `Focus moved to the stack: ${this.speech.friendlyName(preBelow)}.`;
+          } else {
+            // Case 3: Target was the only block in its stack. Pick nearest other stack.
+            const tops = (workspace.getTopBlocks && workspace.getTopBlocks(true)) ?
+                workspace.getTopBlocks(true) : [];
+            const others = tops.filter(b => b !== targetBlock && b.isEnabled?.() !== false && !b.isShadow?.());
+            if (others.length) {
+              let best = others[0], bestD2 = Infinity;
+              for (const b of others) {
+                const p = b.getRelativeToSurfaceXY?.() || {x: 0, y: 0};
+                const dx = p.x - txyBefore.x, dy = p.y - txyBefore.y;
+                const d2 = dx * dx + dy * dy;
+                if (d2 < bestD2) {
+                  bestD2 = d2;
+                  best = b;
+                }
+              }
+              focusNode = Blockly.ASTNode.createStackNode(best);
+              announce = `Focus moved to the nearest stack: ${this.speech.friendlyName(best)}.`;
+            } else {
+              // Case 4: No stacks remain — focus workspace near previous location.
+              const wsCoord = new Blockly.utils.Coordinate(txyBefore.x, txyBefore.y);
+              focusNode = Blockly.ASTNode.createWorkspaceNode(workspace, wsCoord);
+              announce = 'Focus moved to the workspace.';
+            }
           }
-        } catch{}
-        finally {
+
+          if (focusNode) cursor?.setCurNode(focusNode);
+          this.speech.update?.(
+              `Detached ${this.speech.blockToText(targetBlock) || 'block'}. ${announce} ` +
+              `Enter edit mode on the desired block, navigate to a connection, then press Ctrl+V to attach.`
+          );
+        } catch {
+        } finally {
           Blockly.Events.setGroup(false);
         }
-        this.speech.update?.(
-            `Detached ${this.speech.blockToText(targetBlock) || 'block'}. Enter edit mode on desired block, navigate to a connection, then press Ctrl+V to attach.`
-        );
         return true;
       },
     };
@@ -1346,16 +1455,6 @@ export class NavigationController {
     );
     Blockly.ShortcutRegistry.registry.addKeyMapping(
         ctrlX,
-        cutShortcut.name,
-        true,
-    );
-
-    const altX = Blockly.ShortcutRegistry.registry.createSerializedKey(
-        Blockly.utils.KeyCodes.X,
-        [Blockly.utils.KeyCodes.ALT],
-    );
-    Blockly.ShortcutRegistry.registry.addKeyMapping(
-        altX,
         cutShortcut.name,
         true,
     );
@@ -1436,12 +1535,6 @@ export class NavigationController {
         return true;
       },
     };
-
-    Blockly.ShortcutRegistry.registry.register(cursorLocShortcut);
-    Blockly.ShortcutRegistry.registry.addKeyMapping(
-        Blockly.utils.KeyCodes.C,
-        cursorLocShortcut.name,
-    );
 
     const altC = Blockly.ShortcutRegistry.registry.createSerializedKey(
         Blockly.utils.KeyCodes.C,
@@ -1789,6 +1882,85 @@ export class NavigationController {
   }
 
 
+  registerUndo() {
+    const {ShortcutRegistry, utils: {KeyCodes}, Gesture} = Blockly;
+
+    /** @type {!Blockly.ShortcutRegistry.KeyboardShortcut} */
+    const undoShortcut = {
+      name: Constants.SHORTCUT_NAMES.UNDO,
+      preconditionFn(workspace) {
+        // Allow undo whenever workspace is editable and not in a gesture.
+        return !workspace.options.readOnly && !Gesture.inProgress();
+      },
+      callback: (workspace, e) => {
+        const wsCursor = workspace.getCursor();
+        const wasEditing = !!wsCursor?.editMode;
+        // Standard undo (false = undo; true = redo)
+        workspace.hideChaff?.();
+        workspace.undo(false);
+
+        let nodeToFocus = null;
+        // if a detached block was staged, cancel it on Undo.
+        if (this.detachedBlock && !this.detachedBlock.isDisposed?.()) {
+          try {
+            if (typeof this.detachedBlock.setEnabled === 'function') {
+              this.detachedBlock.setEnabled(true);
+            }
+            nodeToFocus = Blockly.ASTNode.createBlockNode(this.detachedBlock);
+          } catch {}
+        } else if (wsCursor?.pastNodeBlockId) {
+          const blk = workspace.getBlockById(wsCursor.pastNodeBlockId);
+          if (blk && !blk.isDisposed?.()) {
+            nodeToFocus = Blockly.ASTNode.createBlockNode(blk);
+          }
+        }
+
+        if (nodeToFocus) {
+          wsCursor?.suppressNextScroll?.();
+          wsCursor?.setCurNode(nodeToFocus);
+
+          // If we were in edit mode before undo, keep edit mode and put the edit focus on this node
+          if (wasEditing) {
+            wsCursor?.suppressNextScroll?.();
+            wsCursor?.setEditingBlock?.(nodeToFocus);
+          }
+        }
+
+        // clear pointers either way.
+        this.detachedBlock = null;
+        this.detachedWorkspace = null;
+
+        // announce via your Speech channel.
+        this.speech?.update?.('Undo performed on previous action');
+
+        // prevent browser from also handling Ctrl/⌘+Z.
+        e?.preventDefault?.();
+        return true;
+      }
+    };
+
+    ShortcutRegistry.registry.register(undoShortcut, true);
+    // Key chords: Ctrl+Z, Alt+Z, Meta+Z (⌘Z on macOS)
+    const ctrlZ = ShortcutRegistry.registry.createSerializedKey(KeyCodes.Z, [KeyCodes.CTRL]);
+    const altZ  = ShortcutRegistry.registry.createSerializedKey(KeyCodes.Z, [KeyCodes.ALT]);
+    const metaZ = ShortcutRegistry.registry.createSerializedKey(KeyCodes.Z, [KeyCodes.META]);
+    Blockly.ShortcutRegistry.registry.addKeyMapping(
+        ctrlZ,
+        undoShortcut.name,
+        true,
+    );
+    Blockly.ShortcutRegistry.registry.addKeyMapping(
+        altZ,
+        undoShortcut.name,
+        true,
+    );
+    Blockly.ShortcutRegistry.registry.addKeyMapping(
+        metaZ,
+        undoShortcut.name,
+        true,
+    );
+  }
+
   /**
    * Registers all default keyboard shortcut items for keyboard navigation. This
    * should be called once per instance of KeyboardShortcutRegistry.
@@ -1823,6 +1995,7 @@ export class NavigationController {
     this.registerPaste();
     this.registerCut();
     this.registerDelete();
+    this.registerUndo();
 
     this.registerReorderStatementShortcuts();
     this.registerShowShortcuts();

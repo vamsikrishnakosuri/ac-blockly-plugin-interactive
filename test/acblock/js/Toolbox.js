@@ -285,6 +285,30 @@ const toolboxConfig =
                 contents: [
                     {
                         kind: 'BLOCK',
+                        type: 'text_print',
+                        inputs: {
+                            TEXT: {
+                                shadow: {
+                                    type: 'text',
+                                    fields: {TEXT: 'abc'},
+                                },
+                            },
+                        },
+                    },
+                    {
+                        kind: 'BLOCK',
+                        type: 'text_prompt_ext',
+                        inputs: {
+                            TEXT: {
+                                shadow: {
+                                    type: 'text',
+                                    fields: {TEXT: 'abc'},
+                                },
+                            },
+                        },
+                    },
+                    {
+                        kind: 'BLOCK',
                         type: 'text',
                     },
                     {
@@ -448,34 +472,6 @@ const toolboxConfig =
                                     fields: {
                                         TEXT: 'cba',
                                     },
-                                },
-                            },
-                        },
-                    },
-                    {
-                        kind: 'label',
-                        text: 'Input/Output:',
-                    },
-                    {
-                        kind: 'BLOCK',
-                        type: 'text_print',
-                        inputs: {
-                            TEXT: {
-                                shadow: {
-                                    type: 'text',
-                                    fields: {TEXT: 'abc'},
-                                },
-                            },
-                        },
-                    },
-                    {
-                        kind: 'BLOCK',
-                        type: 'text_prompt_ext',
-                        inputs: {
-                            TEXT: {
-                                shadow: {
-                                    type: 'text',
-                                    fields: {TEXT: 'abc'},
                                 },
                             },
                         },
