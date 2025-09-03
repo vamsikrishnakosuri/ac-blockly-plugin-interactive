@@ -21,6 +21,7 @@ import {Speech} from "./audio/speech";
 import {initBlockNumbers, disposeBlockNumbers} from './labels_and_comments/block_numbers';
 import { initStackLabels, disposeStackLabels, getStackLabelManager } from './labels_and_comments/stack_labels.js';
 import { initStackSearch, disposeStackSearch, getStackSearchManager } from './labels_and_comments/stack_search.js';
+import {ShortcutAssistance} from "./util/shortcut_assistance";
 
 /**
  * Class for registering shortcuts for keyboard navigation.
@@ -55,6 +56,7 @@ export class NavigationController {
       this.accessibleCursor = new AccessibleCursor();
       this.speech = new Speech();
       this.accessibleCursor.setSpeechListener(this.speech);
+      this.shortcutAssistance = new ShortcutAssistance(this.speech);
     }
   }
 
@@ -174,6 +176,8 @@ export class NavigationController {
     initStackLabels(workspace);
     // Initialize stack search for this workspace
     initStackSearch(workspace);
+
+    this.shortcutAssistance.init();
   }
 
   /**
@@ -1039,16 +1043,6 @@ export class NavigationController {
         true,
     );
 
-    const altC = Blockly.ShortcutRegistry.registry.createSerializedKey(
-        Blockly.utils.KeyCodes.C,
-        [Blockly.utils.KeyCodes.ALT],
-    );
-    Blockly.ShortcutRegistry.registry.addKeyMapping(
-        altC,
-        copyShortcut.name,
-        true,
-    );
-
     const metaC = Blockly.ShortcutRegistry.registry.createSerializedKey(
         Blockly.utils.KeyCodes.C,
         [Blockly.utils.KeyCodes.META],
@@ -1448,6 +1442,16 @@ export class NavigationController {
         Blockly.utils.KeyCodes.C,
         cursorLocShortcut.name,
     );
+
+    const altC = Blockly.ShortcutRegistry.registry.createSerializedKey(
+        Blockly.utils.KeyCodes.C,
+        [Blockly.utils.KeyCodes.ALT],
+    );
+    Blockly.ShortcutRegistry.registry.addKeyMapping(
+        altC,
+        cursorLocShortcut.name,
+        true,
+    );
   }
 
 
@@ -1761,6 +1765,30 @@ export class NavigationController {
     return false;
   }
 
+
+  /**
+   * Alt+H — Show the shortcut assistance modal.
+   */
+  registerShowShortcuts() {
+    const shortcut = {
+      name: Constants.SHORTCUT_NAMES.SHOW_SHORTCUTS,
+      // not available during gesture drags.
+      preconditionFn: (workspace) => !Blockly.Gesture.inProgress(),
+      callback: (workspace) => {
+        this.shortcutAssistance.toggle();
+        return true;
+      },
+    };
+
+    Blockly.ShortcutRegistry.registry.register(shortcut);
+    const altH = Blockly.ShortcutRegistry.registry.createSerializedKey(
+        Blockly.utils.KeyCodes.H,
+        [Blockly.utils.KeyCodes.ALT],
+    );
+    Blockly.ShortcutRegistry.registry.addKeyMapping(altH, shortcut.name, true);
+  }
+
+
   /**
    * Registers all default keyboard shortcut items for keyboard navigation. This
    * should be called once per instance of KeyboardShortcutRegistry.
@@ -1797,6 +1825,7 @@ export class NavigationController {
     this.registerDelete();
 
     this.registerReorderStatementShortcuts();
+    this.registerShowShortcuts();
   }
 
   /**
@@ -1884,5 +1913,6 @@ export class NavigationController {
     }
     this.removeShortcutHandlers();
     this.navigation.dispose();
+    this.shortcutAssistance?.dispose?.();
   }
 }
