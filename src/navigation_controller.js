@@ -1399,17 +1399,17 @@ export class NavigationController {
           let announce = '';
 
           if (preParent) {
-            // Case 1: detached from middle of a stack => focus that original stack
+            // Case 1: detached from middle of a stack, focus that original stack
             const stackTop = preRoot && preRoot !== targetBlock ?
                 preRoot : preParent.getRootBlock?.() || preParent;
             focusNode = Blockly.ASTNode.createStackNode(stackTop);
             announce = `Focus moved to the stack: ${this.speech.friendlyName(stackTop)}.`;
           } else if (preBelow) {
-            // Case 2: detached from top of a stack => focus that original stack
+            // Case 2: detached from top of a stack, focus that original stack
             focusNode = Blockly.ASTNode.createStackNode(preBelow);
             announce = `Focus moved to the stack: ${this.speech.friendlyName(preBelow)}.`;
           } else {
-            // Case 3: Target was the only block in its stack. Pick nearest other stack.
+            // Case 3: Target was the only block in its stack, focus nearest other stack.
             const tops = (workspace.getTopBlocks && workspace.getTopBlocks(true)) ?
                 workspace.getTopBlocks(true) : [];
             const others = tops.filter(b => b !== targetBlock && b.isEnabled?.() !== false && !b.isShadow?.());
@@ -1427,7 +1427,7 @@ export class NavigationController {
               focusNode = Blockly.ASTNode.createStackNode(best);
               announce = `Focus moved to the nearest stack: ${this.speech.friendlyName(best)}.`;
             } else {
-              // Case 4: No stacks remain — focus workspace near previous location.
+              // Case 4: No stacks in workspace
               const wsCoord = new Blockly.utils.Coordinate(txyBefore.x, txyBefore.y);
               focusNode = Blockly.ASTNode.createWorkspaceNode(workspace, wsCoord);
               announce = 'Focus moved to the workspace.';
@@ -1930,10 +1930,10 @@ export class NavigationController {
         this.detachedBlock = null;
         this.detachedWorkspace = null;
 
-        // announce via your Speech channel.
+        // update speech
         this.speech?.update?.('Undo performed on previous action');
 
-        // prevent browser from also handling Ctrl/⌘+Z.
+        // prevent browser event
         e?.preventDefault?.();
         return true;
       }
@@ -1942,15 +1942,9 @@ export class NavigationController {
     ShortcutRegistry.registry.register(undoShortcut, true);
     // Key chords: Ctrl+Z, Alt+Z, Meta+Z (⌘Z on macOS)
     const ctrlZ = ShortcutRegistry.registry.createSerializedKey(KeyCodes.Z, [KeyCodes.CTRL]);
-    const altZ  = ShortcutRegistry.registry.createSerializedKey(KeyCodes.Z, [KeyCodes.ALT]);
     const metaZ = ShortcutRegistry.registry.createSerializedKey(KeyCodes.Z, [KeyCodes.META]);
     Blockly.ShortcutRegistry.registry.addKeyMapping(
         ctrlZ,
-        undoShortcut.name,
-        true,
-    );
-    Blockly.ShortcutRegistry.registry.addKeyMapping(
-        altZ,
         undoShortcut.name,
         true,
     );
