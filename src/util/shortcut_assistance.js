@@ -1,3 +1,4 @@
+// shortcut_assistance.js
 import * as Constants from '../constants';
 import {Speech} from '../audio/speech';
 
@@ -18,6 +19,7 @@ export class ShortcutAssistance {
         // bound
         this._onKeydownInDialog = this._onKeydownInDialog.bind(this);
         this._onClickBackdrop = this._onClickBackdrop.bind(this);
+        this._onFocusInGuard = this._onFocusInGuard.bind(this);
     }
 
     init() {
@@ -27,6 +29,7 @@ export class ShortcutAssistance {
 
     dispose() {
         document.removeEventListener('keydown', this._onKeydownInDialog, true);
+        this.root?.removeEventListener('focusin', this._onFocusInGuard, true);
         if (this.root?.parentNode) this.root.parentNode.removeChild(this.root);
         this.root = null;
         this.listEl = null;
@@ -44,11 +47,23 @@ export class ShortcutAssistance {
         if (this.isOpen) return;
 
         this.prevFocus = document.activeElement;
+
+        // VISUALLY OPEN
         this.root.classList.add('acc-shortcuts--open');
 
-        // Keep all items unfocused, selection is visual only.
+        // Make subtree AT-visible and focusable
+        this.root.removeAttribute('inert');
+        this.root.setAttribute('aria-hidden', 'true');
+
+        // Keep all items unfocused; selection is visual only.
         this.items.forEach(el => (el.tabIndex = -1));
         this.index = -1;
+
+        // Focus dialog shell (never a list item)
+        try {
+            this.root.querySelector('.acc-shortcuts__dialog')?.focus();
+        } catch {
+        }
 
         const modName = this._os().isMac ? 'Option plus H' : 'Alt plus H';
         this.speech.update(
@@ -56,20 +71,30 @@ export class ShortcutAssistance {
             `Press Escape or ${modName} to close.`
         );
 
+        // Capture keystrokes while open (but allow modified combos through)
         document.addEventListener('keydown', this._onKeydownInDialog, true);
         this.isOpen = true;
     }
 
-
     close() {
         if (!this.isOpen) return;
+
+        // VISUALLY CLOSE
         this.root.classList.remove('acc-shortcuts--open');
         document.removeEventListener('keydown', this._onKeydownInDialog, true);
         this.isOpen = false;
+
+        // Move focus OUT before hiding from AT
+        const fallback = document.querySelector('#blocklyDiv') || document.body;
         try {
-            this.prevFocus?.focus?.();
+            (this.prevFocus || fallback)?.focus?.();
         } catch {
         }
+
+        // Hide from AT & make inert to future focusing
+        this.root.setAttribute('aria-hidden', 'false');
+        this.root.setAttribute('inert', '');
+
         this.speech.update('Shortcut help closed.');
     }
 
@@ -134,8 +159,8 @@ export class ShortcutAssistance {
 /* Shortcut Assistance (auto-injected) */
 .acc-shortcuts { position: fixed; inset: 0; z-index: 9999; pointer-events: none;
   /* Tunables for spacing & alignment */
-  --keysCol: clamp(180px, 32vw, 140px);  /* fixed keys column to align descriptions */
-  --colGap : 2px;                       /* space between keys and description */
+  --keysCol: clamp(180px, 32vw, 140px);
+  --colGap : 2px;
 }
 .acc-shortcuts__backdrop { position: absolute; inset: 0; background: rgba(0,0,0,.35);
   opacity: 0; transition: opacity .14s ease; pointer-events: none; }
@@ -164,11 +189,11 @@ export class ShortcutAssistance {
 /* Rows: align descriptions with a fixed keys column */
 .acc-shortcuts__item {
   display: grid;
-  grid-template-columns: var(--keysCol) 1fr;  /* <- fixed keys column */
+  grid-template-columns: var(--keysCol) 1fr;
   column-gap: var(--colGap);
   row-gap: 8px;
-  align-items: start;           /* top-align multi-line rows to avoid visual jitter */
-  justify-items: start;         /* left-justify both columns */
+  align-items: start;
+  justify-items: start;
   padding: 10px 12px;
   outline: none;
   font-size: 14px;
@@ -178,12 +203,12 @@ export class ShortcutAssistance {
   background: #f6f7fb; box-shadow: inset 0 0 0 2px #4c8bf5;
 }
 
-/* Key chips: allow wrapping; keep cluster tidy */
+/* Key chips */
 .acc-shortcuts__keys {
   display: inline-flex; flex-wrap: wrap; gap: 6px;
   align-items: center; justify-self: start;
-  min-block-size: 28px;         /* gives a consistent baseline even if single-line */
-  margin-inline-end: 0;         /* spacing now controlled by grid column-gap */
+  min-block-size: 28px;
+  margin-inline-end: 0;
 }
 .acc-shortcuts__kbd {
   display: inline-block; min-width: 22px; padding: 3px 9px; border-radius: 7px;
@@ -192,7 +217,7 @@ export class ShortcutAssistance {
   font-size: 13.5px; line-height: 20px; font-weight: 600; letter-spacing: .2px; white-space: nowrap;
 }
 
-/* Description: left aligned, consistent spacing from title to detail */
+/* Description column */
 .acc-shortcuts__desc {
   line-height: 1.45;
   justify-self: start;
@@ -233,8 +258,7 @@ export class ShortcutAssistance {
 
 .acc-shortcuts__body { overscroll-behavior: contain; }
 .acc-shortcuts__item { scroll-margin-block: 8px; }
-
-  `.trim();
+`.trim();
         const style = document.createElement('style');
         style.id = 'acc-shortcuts-style';
         style.textContent = css;
@@ -246,29 +270,35 @@ export class ShortcutAssistance {
 
         const root = document.createElement('div');
         root.className = 'acc-shortcuts';
-        root.setAttribute('aria-hidden', 'true'); // SR ignores entire subtree
-
         root.innerHTML = `
-    <div class="acc-shortcuts__backdrop" data-close="1"></div>
-    <!-- No dialog roles/aria here -->
-    <div class="acc-shortcuts__dialog" tabindex="-1">
-      <div class="acc-shortcuts__header">
-        <h2 class="acc-shortcuts__title" id="acc-shortcuts-title">Keyboard Shortcuts</h2>
-        <button class="acc-shortcuts__close" type="button" aria-label="Close shortcut help" data-close="1">✕</button>
+      <div class="acc-shortcuts__backdrop" data-close="1"></div>
+      <div class="acc-shortcuts__dialog" tabindex="-1">
+        <div class="acc-shortcuts__header">
+          <h2 class="acc-shortcuts__title" id="acc-shortcuts-title">Keyboard Shortcuts</h2>
+          <button class="acc-shortcuts__close" type="button" aria-label="Close shortcut help" data-close="1">✕</button>
+        </div>
+        <div class="acc-shortcuts__body">
+          <p class="acc-shortcuts__intro">
+            Press W and S keys to move through shortcuts list. Press Escape (ESC) key to close the shortcut help.
+          </p>
+          <ul class="acc-shortcuts__list"></ul>
+        </div>
+        <div class="acc-shortcuts__footer">
+          Tip: On macOS, “Ctrl” is shown as “⌘” (Command) and “Alt” is shown as “⌥” (Option).
+        </div>
       </div>
-      <div class="acc-shortcuts__body">
-        <!-- remove aria-live (SR announcements come only from #blockReader) -->
-        <p class="acc-shortcuts__intro">
-          Press W and S keys to move through shortcuts list. Press Escape (ESC) key to close the shortcut help.
-        </p>
-        <ul class="acc-shortcuts__list"></ul>
-      </div>
-      <div class="acc-shortcuts__footer">
-        Tip: On macOS, “Ctrl” is shown as “⌘” (Command) and “Alt” is shown as “⌥” (Option).
-      </div>
-    </div>
-  `;
+    `;
+
+        // Hidden by default & inert (prevents any focusing)
+        root.setAttribute('aria-hidden', 'true');
+        root.setAttribute('inert', '');
         document.body.appendChild(root);
+
+        // Dialog semantics
+        const dialog = root.querySelector('.acc-shortcuts__dialog');
+        dialog.setAttribute('role', 'dialog');
+        dialog.setAttribute('aria-modal', 'true');
+        dialog.setAttribute('aria-labelledby', 'acc-shortcuts-title');
 
         const list = root.querySelector('.acc-shortcuts__list');
 
@@ -277,15 +307,15 @@ export class ShortcutAssistance {
         rows.forEach((row) => {
             const li = document.createElement('li');
             li.className = 'acc-shortcuts__item';
-            li.tabIndex = -1; // will not receive focus
+            li.tabIndex = -1; // not focusable
             const keysHTML = this._rowKeysToHTML(row.keys);
             li.innerHTML = `
-      <div class="acc-shortcuts__keys">${keysHTML}</div>
-      <div class="acc-shortcuts__desc">
-        <div class="acc-shortcuts__descTitle">${row.title}</div>
-        ${row.detail ? `<div class="acc-shortcuts__descDetail">${row.detail}</div>` : ''}
-      </div>
-    `;
+        <div class="acc-shortcuts__keys">${keysHTML}</div>
+        <div class="acc-shortcuts__desc">
+          <div class="acc-shortcuts__descTitle">${row.title}</div>
+          ${row.detail ? `<div class="acc-shortcuts__descDetail">${row.detail}</div>` : ''}
+        </div>
+      `;
             list.appendChild(li);
         });
 
@@ -296,10 +326,25 @@ export class ShortcutAssistance {
 
         // click-to-close on backdrop / button
         root.addEventListener('click', this._onClickBackdrop, true);
+
+        // Guard: if the hidden modal (aria-hidden/inert) ever receives focus, bounce it back out
+        root.addEventListener('focusin', this._onFocusInGuard, true);
     }
 
+    // Guard against focus inside hidden modal
+    _onFocusInGuard(e) {
+        if (!this.root) return;
+        const isHidden = this.root.getAttribute('aria-hidden') === 'true';
+        if (!isHidden) return;
+        const fallback = document.querySelector('#blocklyDiv') || document.body;
+        // Move focus away immediately to avoid "Blocked aria-hidden..." and leave AT tree consistent
+        try {
+            (this.prevFocus || fallback)?.focus?.();
+        } catch {
+        }
+    }
 
-    // speech
+    // speech + visual selection
     _setActive(nextIndex, speak = false) {
         nextIndex = Math.max(0, Math.min(this.items.length - 1, nextIndex));
 
@@ -324,8 +369,7 @@ export class ShortcutAssistance {
         }
     }
 
-
-    // key events
+    // key events while dialog is open
     _onKeydownInDialog(e) {
         const key = e.key;
         const code = e.code;
@@ -339,7 +383,7 @@ export class ShortcutAssistance {
             return;
         }
 
-        // navigate usigng w/s
+        // navigate using W/S (no modifiers)
         const noMods = !e.altKey && !e.ctrlKey && !e.metaKey && !e.shiftKey;
         const up = noMods && (code === 'KeyW' || key === 'w' || key === 'W');
         const down = noMods && (code === 'KeyS' || key === 's' || key === 'S');
@@ -372,8 +416,10 @@ export class ShortcutAssistance {
             return;
         }
 
-        // swallow other keys so they don't reach Blockly while dialog is open
-        if (/^[a-z0-9]$/i.test(key)) {
+        // Swallow only unmodified letters/digits; let modified combos (Ctrl/Meta/Alt/Shift) through to Blockly.
+        const isLetterOrDigit = /^[a-z0-9]$/i.test(key);
+        const hasModifier = e.ctrlKey || e.metaKey || e.altKey || e.shiftKey;
+        if (isLetterOrDigit && !hasModifier) {
             e.preventDefault();
             e.stopPropagation();
         }
@@ -399,7 +445,6 @@ export class ShortcutAssistance {
             scroller.scrollTop = sTop + (r.bottom - sRect.bottom) + pad;
         }
     }
-
 
     _onClickBackdrop(e) {
         const t = e.target;
