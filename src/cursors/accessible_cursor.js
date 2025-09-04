@@ -19,6 +19,8 @@ export class AccessibleCursor extends Blockly.Cursor {
         this.editingBlock = null;
         this.editConnection = null;
         this.shouldSuppressScroll = false;
+        this.pastNode = null;
+        this.pastNodeBlockId = null;
     }
 
     // prevent scroll to current view
@@ -1234,8 +1236,11 @@ export class AccessibleCursor extends Blockly.Cursor {
     }
 
     setCurNode(newNode) {
-
         this.updateSelectionFromNode(newNode);
+
+        // track past node id for undo action
+        this.pastNode = this.curNode || null;
+        this.pastNodeBlockId = this.pastNode?.getSourceBlock?.()?.id || null;
 
         super.setCurNode(newNode);
 

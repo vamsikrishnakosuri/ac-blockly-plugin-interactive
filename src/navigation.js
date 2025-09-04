@@ -420,18 +420,33 @@ export class Navigation {
     const block = curNode ? curNode.getSourceBlock() : null;
 
     if (block === deletedBlock) {
-      // If the block has a parent move the cursor to their connection point.
+      // If the block has a parent move the cursor to the block attached to their connection point.
       if (block.getParent()) {
         const topConnection =
             block.previousConnection || block.outputConnection;
-        if (topConnection) {
-          cursor.setCurNode(
-              Blockly.ASTNode.createConnectionNode(
-                  topConnection.targetConnection,
-              ),
-          );
+        const parentConn = topConnection && topConnection.targetConnection;
+        const parentBlock = parentConn && parentConn.getSourceBlock
+            ? parentConn.getSourceBlock()
+            : null;
+
+        if (parentBlock && !parentBlock.isDisposed?.()) {
+          // Focus parent block
+          cursor.suppressNextScroll?.();
+          cursor.setCurNode(Blockly.ASTNode.createBlockNode(parentBlock));
+          return;
         }
       } else {
+        // no prev/out block
+        const nextBlock = (typeof block.getNextBlock === 'function')
+            ? block.getNextBlock()
+            : (block.nextConnection?.targetBlock?.() || null);
+
+        if (nextBlock && !nextBlock.isShadow?.() && !nextBlock.isDisposed?.()) {
+          cursor.suppressNextScroll?.();
+          cursor.setCurNode(Blockly.ASTNode.createBlockNode(nextBlock));
+          return;
+        }
+
         // If the block is by itself move the cursor to the workspace.
         cursor.setCurNode(
             Blockly.ASTNode.createWorkspaceNode(
