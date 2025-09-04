@@ -1536,6 +1536,7 @@ export class NavigationController {
       },
     };
 
+    Blockly.ShortcutRegistry.registry.register(cursorLocShortcut);
     const altC = Blockly.ShortcutRegistry.registry.createSerializedKey(
         Blockly.utils.KeyCodes.C,
         [Blockly.utils.KeyCodes.ALT],
