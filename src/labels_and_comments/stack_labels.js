@@ -51,13 +51,13 @@ export function getStackLabelFromStackNode(stackNode, workspace) {
   const mgr = getStackLabelManager(workspace);
   if (!mgr) return null;
 
-  const letter = mgr.stackLetters().get(top.id) || '';
-  const custom = mgr.stackLabelTexts().get(top.id) || '';
+  const letter = mgr.stackLetters()?.get(top.id) || '';
+  const custom = mgr.stackLabelTexts()?.get(top.id) || '';
 
   if (!letter && !custom) {
     return null;
   }
-  return custom ? `${letter} ${custom}` : letter;
+  return custom ? `${letter} with custom label ${custom}` : letter;
 }
 
 
@@ -155,7 +155,7 @@ export class StackLabelManager {
   }
 
   stackLetters() {
-    return this._stackLetters_;
+    return this.stackLetters_;
   }
 
   stackLabelTexts() {

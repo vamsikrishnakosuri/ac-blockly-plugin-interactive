@@ -260,9 +260,9 @@ export class NavigationController {
             isHandled = this.fieldShortcutHandler(workspace, shortcut);
             if (!isHandled) {
               let node = workspace.getCursor().prev();
-              if (node.getType() === Blockly.ASTNode.types.STACK) {
+              if (node?.getType() === Blockly.ASTNode.types.STACK) {
                 let stackLabel = getStackLabelFromStackNode(node, workspace);
-                this.speech.updateBlockReader(null, stackLabel ? stackLabel : node.getType(), null, Constants.SHORTCUT_NAMES.LAYER_OUT, Constants.STATE.WORKSPACE);
+                this.speech.updateBlockReader(null, stackLabel ? node.getType() + " " +stackLabel : node.getType(), null, Constants.SHORTCUT_NAMES.LAYER_OUT, Constants.STATE.WORKSPACE);
               } else {
                 this.speech.process(node, Constants.SHORTCUT_NAMES.PREVIOUS, Constants.STATE.WORKSPACE);
               }
@@ -423,9 +423,9 @@ export class NavigationController {
             isHandled = this.fieldShortcutHandler(workspace, shortcut);
             if (!isHandled) {
               let node = workspace.getCursor().next();
-              if (node.getType() === Blockly.ASTNode.types.STACK) {
+              if (node?.getType() === Blockly.ASTNode.types.STACK) {
                 let stackLabel = getStackLabelFromStackNode(node, workspace);
-                this.speech.updateBlockReader(null, stackLabel ? stackLabel : node.getType(), null, Constants.SHORTCUT_NAMES.LAYER_OUT, Constants.STATE.WORKSPACE);
+                this.speech.updateBlockReader(null, stackLabel ? node.getType() + " " +stackLabel : node.getType(), null, Constants.SHORTCUT_NAMES.LAYER_OUT, Constants.STATE.WORKSPACE);
               } else {
                 this.speech.process(node, Constants.SHORTCUT_NAMES.NEXT, Constants.STATE.WORKSPACE);
               }
@@ -572,9 +572,9 @@ export class NavigationController {
             isHandled = this.fieldShortcutHandler(workspace, shortcut);
             if (!isHandled) {
               let node = workspace.getCursor().layerIn();
-              if (node.getType() === Blockly.ASTNode.types.STACK) {
+              if (node?.getType() === Blockly.ASTNode.types.STACK) {
                 let stackLabel = getStackLabelFromStackNode(node, workspace);
-                this.speech.updateBlockReader(null, stackLabel ? stackLabel : node.getType(), null, Constants.SHORTCUT_NAMES.LAYER_OUT, Constants.STATE.WORKSPACE);
+                this.speech.updateBlockReader(null, stackLabel ? node.getType() + " " +stackLabel : node.getType(), null, Constants.SHORTCUT_NAMES.LAYER_OUT, Constants.STATE.WORKSPACE);
               } else {
                 this.speech.process(node, Constants.SHORTCUT_NAMES.LAYER_IN, Constants.STATE.WORKSPACE);
               }
@@ -620,9 +620,9 @@ export class NavigationController {
             isHandled = this.fieldShortcutHandler(workspace, shortcut);
             if (!isHandled) {
               let node = workspace.getCursor().layerOut();
-              if (node.getType() === Blockly.ASTNode.types.STACK) {
+              if (node?.getType() === Blockly.ASTNode.types.STACK) {
                 let stackLabel = getStackLabelFromStackNode(node, workspace);
-                this.speech.updateBlockReader(null, stackLabel ? stackLabel : node.getType(), null, Constants.SHORTCUT_NAMES.LAYER_OUT, Constants.STATE.WORKSPACE);
+                this.speech.updateBlockReader(null, node.getType() + " " +stackLabel ? node.getType() + " " + stackLabel : node.getType(), null, Constants.SHORTCUT_NAMES.LAYER_OUT, Constants.STATE.WORKSPACE);
               } else {
                 this.speech.process(node, Constants.SHORTCUT_NAMES.LAYER_OUT, Constants.STATE.WORKSPACE);
               }
