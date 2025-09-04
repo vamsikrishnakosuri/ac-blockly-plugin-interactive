@@ -1,6 +1,6 @@
 import * as Blockly from 'blockly/core';
 import {Constants} from "../index";
-import * as Util from "../util/util"
+import * as Util from "../util/util";
 
 export class Speech {
     constructor() {

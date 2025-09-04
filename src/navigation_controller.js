@@ -19,7 +19,7 @@ import {Navigation} from './navigation';
 import {AccessibleCursor} from "./cursors/accessible_cursor";
 import {Speech} from "./audio/speech";
 import {initBlockNumbers, disposeBlockNumbers} from './labels_and_comments/block_numbers';
-import { initStackLabels, disposeStackLabels, getStackLabelManager } from './labels_and_comments/stack_labels.js';
+import { initStackLabels, disposeStackLabels, getStackLabelManager, getStackLabelFromStackNode} from './labels_and_comments/stack_labels.js';
 import { initStackSearch, disposeStackSearch, getStackSearchManager } from './labels_and_comments/stack_search.js';
 import {ShortcutAssistance} from "./util/shortcut_assistance";
 
@@ -260,7 +260,12 @@ export class NavigationController {
             isHandled = this.fieldShortcutHandler(workspace, shortcut);
             if (!isHandled) {
               let node = workspace.getCursor().prev();
-              this.speech.process(node, Constants.SHORTCUT_NAMES.PREVIOUS, Constants.STATE.WORKSPACE);
+              if (node.getType() === Blockly.ASTNode.types.STACK) {
+                let stackLabel = getStackLabelFromStackNode(node, workspace);
+                this.speech.updateBlockReader(null, stackLabel ? stackLabel : node.getType(), null, Constants.SHORTCUT_NAMES.LAYER_OUT, Constants.STATE.WORKSPACE);
+              } else {
+                this.speech.process(node, Constants.SHORTCUT_NAMES.PREVIOUS, Constants.STATE.WORKSPACE);
+              }
               isHandled = true;
             }
             return isHandled;
@@ -418,7 +423,12 @@ export class NavigationController {
             isHandled = this.fieldShortcutHandler(workspace, shortcut);
             if (!isHandled) {
               let node = workspace.getCursor().next();
-              this.speech.process(node, Constants.SHORTCUT_NAMES.NEXT, Constants.STATE.WORKSPACE);
+              if (node.getType() === Blockly.ASTNode.types.STACK) {
+                let stackLabel = getStackLabelFromStackNode(node, workspace);
+                this.speech.updateBlockReader(null, stackLabel ? stackLabel : node.getType(), null, Constants.SHORTCUT_NAMES.LAYER_OUT, Constants.STATE.WORKSPACE);
+              } else {
+                this.speech.process(node, Constants.SHORTCUT_NAMES.NEXT, Constants.STATE.WORKSPACE);
+              }
               isHandled = true;
             }
             return isHandled;
@@ -562,7 +572,12 @@ export class NavigationController {
             isHandled = this.fieldShortcutHandler(workspace, shortcut);
             if (!isHandled) {
               let node = workspace.getCursor().layerIn();
-              this.speech.process(node, Constants.SHORTCUT_NAMES.LAYER_IN, Constants.STATE.WORKSPACE);
+              if (node.getType() === Blockly.ASTNode.types.STACK) {
+                let stackLabel = getStackLabelFromStackNode(node, workspace);
+                this.speech.updateBlockReader(null, stackLabel ? stackLabel : node.getType(), null, Constants.SHORTCUT_NAMES.LAYER_OUT, Constants.STATE.WORKSPACE);
+              } else {
+                this.speech.process(node, Constants.SHORTCUT_NAMES.LAYER_IN, Constants.STATE.WORKSPACE);
+              }
               isHandled = true;
             }
             return isHandled;
@@ -605,7 +620,12 @@ export class NavigationController {
             isHandled = this.fieldShortcutHandler(workspace, shortcut);
             if (!isHandled) {
               let node = workspace.getCursor().layerOut();
-              this.speech.process(node, Constants.SHORTCUT_NAMES.LAYER_OUT, Constants.STATE.WORKSPACE);
+              if (node.getType() === Blockly.ASTNode.types.STACK) {
+                let stackLabel = getStackLabelFromStackNode(node, workspace);
+                this.speech.updateBlockReader(null, stackLabel ? stackLabel : node.getType(), null, Constants.SHORTCUT_NAMES.LAYER_OUT, Constants.STATE.WORKSPACE);
+              } else {
+                this.speech.process(node, Constants.SHORTCUT_NAMES.LAYER_OUT, Constants.STATE.WORKSPACE);
+              }
               isHandled = true;
             }
             return isHandled;
