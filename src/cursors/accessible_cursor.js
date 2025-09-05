@@ -1348,6 +1348,60 @@ export class AccessibleCursor extends Blockly.Cursor {
         super.setDrawer(proxyDrawer);
     }
 
+    // simulate key move without side effect
+    _simulateKeyPress(fn) {
+        // snapshot mutable fields we might accidentally touch
+        const snap = {
+            curNode: this.getCurNode ? this.getCurNode() : null,
+            lastStack: this.lastStack,
+            editConnection: this.editConnection,
+            shouldSuppressScroll: this.shouldSuppressScroll,
+            editingBlock: this.editingBlock,
+            editMode: this.editMode,
+            pastNode: this.pastNode,
+            pastNodeBlockId: this.pastNodeBlockId,
+        };
+
+        const origSetCurNode = this.setCurNode;
+        try {
+            // prevent visual/selection/scroll mutations during prediction
+            this.setCurNode = function noop() {};
+            this.shouldSuppressScroll = true;
+            const predicted = fn.call(this) || null;
+            return predicted;
+        } catch (e) {
+            console.error('AccessibleCursor._simulateKeyPress error:', e);
+            return null;
+        } finally {
+            // restore state
+            this.setCurNode = origSetCurNode;
+            this.lastStack = snap.lastStack;
+            this.editConnection = snap.editConnection;
+            this.shouldSuppressScroll = snap.shouldSuppressScroll;
+            this.editingBlock = snap.editingBlock;
+            this.editMode = snap.editMode;
+            this.pastNode = snap.pastNode;
+            this.pastNodeBlockId = snap.pastNodeBlockId;
+            // curNode never changed because setCurNode was a no-op.
+        }
+    }
+
+    /**
+     * Predict the node that would be focused if a nav key is pressed.
+     * @param {'W'|'A'|'S'|'D'|'F'|'Q'} dir
+     * @returns {?Blockly.ASTNode}
+     */
+    predictNavigableBlock(dir) {
+        switch (dir) {
+            case 'W': return this._simulateKeyPress(this.prev);
+            case 'S': return this._simulateKeyPress(this.next);
+            case 'D': return this._simulateKeyPress(this.in);
+            case 'A': return this._simulateKeyPress(this.out);
+            case 'F': return this._simulateKeyPress(this.layerIn);
+            case 'Q': return this._simulateKeyPress(this.layerOut);
+            default:  return null;
+        }
+    }
 }
 
 
