@@ -68,44 +68,134 @@ export const LOGGING_MSG_TYPE = {
  */
 export const SHORTCUT_HELP_ROWS = [
   {
-    keys: ['W'], title: 'Navigation Mode: move cursor up to previous block',
-    detail: 'Edit mode: move to the top connection.'
+    keys: ['W'],
+    title: 'Navigation Mode: move cursor up to previous block',
+    detail: 'Edit mode: move to the top connection.',
+    sr: 'Shortcut key W. Move cursor up to the previous block in Navigation mode. And move to the top connection in Edit mode.'
   },
   {
-    keys: ['S'], title: 'Navigation Mode: move cursor down to next block',
-    detail: 'Edit mode: move to the bottom connection.'
+    keys: ['S'],
+    title: 'Navigation Mode: move cursor down to next block',
+    detail: 'Edit mode: move to the bottom connection.',
+    sr: 'Shortcut key S. Move cursor down to the next block in Navigation mode. And move to the bottom connection in Edit mode.'
   },
   {
-    keys: ['A'], title: 'Navigation Mode: move cursor left to previous block',
-    detail: 'Edit mode: move to the left connection.'
+    keys: ['A'],
+    title: 'Navigation Mode: move cursor left to previous block',
+    detail: 'Edit mode: move to the left connection.',
+    sr: 'Shortcut key A. Move cursor left to the previous block in Navigation mode. And move to the left connection in Edit mode.'
   },
   {
-    keys: ['D'], title: 'Navigation Mode: move cursor right to next block',
-    detail: 'Edit mode: move to the right connection.'
+    keys: ['D'],
+    title: 'Navigation Mode: move cursor right to next block',
+    detail: 'Edit mode: move to the right connection.',
+    sr: 'Shortcut key D. Move cursor right to the next block in Navigation mode. And move to the right connection in Edit mode.'
   },
   {
-    keys: ['F'], title: 'Navigation Mode: move to first nested block of current container block',
-    detail: 'Edit Mode: move first nested connection of current block'
+    keys: ['F'],
+    title: 'Navigation Mode: move to first nested block of current container block',
+    detail: 'Edit Mode: move first nested connection of current block',
+    sr: 'Shortcut key F. Move to the first nested block of the current container in Navigation mode. And move to the first nested connection of the current block in Edit mode.'
   },
-  {keys: ['Q'], title: 'Move cursor out to parent block or outer layer'},
-  {keys: ['E'], title: 'Toggle Edit mode (enter or exit)'},
-  {keys: ['T'], title: 'Open the toolbox'},
-  {keys: ['Esc'], title: 'Close toolbox and return focus to workspace'},
-  {keys: ['ALT', 'C'], title: 'Announce current cursor location'},
-  {keys: ['ALT', 'X'], title: 'Disconnect block from current cursor location (Edit Mode Only)'},
-  {keys: ['ALT', 'W'], title: 'Move the selected statement block upward (Navigation Mode Only)'},
-  {keys: ['ALT', 'S'], title: 'Move the selected statement block downward (Navigation Mode Only)'},
-  {keys: ['MOD', 'X'], title: 'Cut (detach) the selected block (Navigation Mode Only)'},
-  {keys: ['MOD', 'V'], title: 'Paste (attach) detached block to a connection (Edit Mode Only)'},
-  {keys: ['Del'], title: 'Delete the selected block'},
-  {keys: ['MOD', '/'], title: 'Add or hide a comment on the selected block'},
-  {keys: ['Shift', 'W'], title: 'Move workspace marker up'},
-  {keys: ['Shift', 'S'], title: 'Move workspace marker down'},
-  {keys: ['Shift', 'D'], title: 'Move workspace marker right'},
-  {keys: ['Shift', 'A'], title: 'Move workspace marker left'},
-  {keys: ['ALT', 'Shift', 'G'], title: 'Search stacks'},
-  {keys: 'A–Z', title: 'Jump to a stack labelled with that letter'},
-  {keys: ['ALT', 'H'], title: 'Open or close this shortcut help'},
-  {keys: ['MOD', 'Shift', 'K'], title: 'Enable/disable keyboard accessibility'} // new
+  {
+    keys: ['Q'],
+    title: 'Move cursor out to parent block or outer layer',
+    sr: 'Shortcut key Q. Move the cursor out to the parent block or outer layer.'
+  },
+  {
+    keys: ['E'],
+    title: 'Toggle Edit mode (enter or exit)',
+    sr: 'Shortcut key E. Toggle Edit mode.'
+  },
+  {
+    keys: ['T'],
+    title: 'Open the toolbox',
+    sr: 'Shortcut key T. Open the toolbox.'
+  },
+  {
+    keys: ['Esc'],
+    title: 'Close toolbox and return focus to workspace',
+    sr: 'Shortcut key Escape. Close the toolbox and return focus to the workspace.'
+  },
+  {
+    keys: ['ALT', 'C'],
+    title: 'Announce current cursor location',
+    sr: 'Shortcut keys Alt plus C. Announce the current cursor location.'
+  },
+  {
+    keys: ['ALT', 'X'],
+    title: 'Disconnect block from current cursor location (Edit Mode Only)',
+    sr: 'Shortcut keys Alt plus X. Disconnect the block from the current cursor location. Edit mode only.'
+  },
+  {
+    keys: ['ALT', 'W'],
+    title: 'Move the selected statement block upward (Navigation Mode Only)',
+    sr: 'Shortcut keys Alt plus W. Move the selected statement block upward. Navigation mode only.'
+  },
+  {
+    keys: ['ALT', 'S'],
+    title: 'Move the selected statement block downward (Navigation Mode Only)',
+    sr: 'Shortcut keys Alt plus S. Move the selected statement block downward. Navigation mode only.'
+  },
+  {
+    keys: ['MOD', 'X'],
+    title: 'Cut (detach) the selected block (Navigation Mode Only)',
+    sr: 'Shortcut keys Command (Mac) or Control (Windows) plus X. Cut the selected block. Navigation mode only.'
+  },
+  {
+    keys: ['MOD', 'V'],
+    title: 'Paste (attach) detached block to a connection (Edit Mode Only)',
+    sr: 'Shortcut keys Command (Mac) or Control (Windows) plus V. Paste the detached block to a connection. Edit mode only.'
+  },
+  {
+    keys: ['Del'],
+    title: 'Delete the selected block',
+    sr: 'Shortcut key Delete. Delete the selected block.'
+  },
+  {
+    keys: ['MOD', '/'],
+    title: 'Add or hide a comment on the selected block',
+    sr: 'Shortcut keys Command (Mac) or Control (Windows) plus Slash. Add or hide a comment on the selected block.'
+  },
+  {
+    keys: ['Shift', 'W'],
+    title: 'Move workspace marker up',
+    sr: 'Shortcut keys Shift plus W. Move the workspace marker up.'
+  },
+  {
+    keys: ['Shift', 'S'],
+    title: 'Move workspace marker down',
+    sr: 'Shortcut keys Shift plus S. Move the workspace marker down.'
+  },
+  {
+    keys: ['Shift', 'D'],
+    title: 'Move workspace marker right',
+    sr: 'Shortcut keys Shift plus D. Move the workspace marker right.'
+  },
+  {
+    keys: ['Shift', 'A'],
+    title: 'Move workspace marker left',
+    sr: 'Shortcut keys Shift plus A. Move the workspace marker left.'
+  },
+  {
+    keys: ['ALT', 'Shift', 'G'],
+    title: 'Search stacks',
+    sr: 'Shortcut keys Alt plus Shift plus G. Search stacks.'
+  },
+  {
+    keys: 'A–Z',
+    title: 'Jump to a stack labelled with that letter',
+    sr: 'Shortcut key any letter A through Z. Jump to a stack labeled with that letter.'
+  },
+  {
+    keys: ['ALT', 'H'],
+    title: 'Open or close this shortcut help',
+    sr: 'Shortcut keys Alt plus H. Open or close this shortcut help.'
+  },
+  {
+    keys: ['MOD', 'Shift', 'K'],
+    title: 'Enable/disable keyboard accessibility',
+    sr: 'Shortcut keys Command (Mac) or Control (Windows) plus Shift plus K. Enable or disable keyboard accessibility.'
+  }
 ];
 

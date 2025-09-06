@@ -41,24 +41,24 @@
              role="status"></div>
         <div class="execution-panel">
             <!-- Header row: Run + program picker -->
-            <div class="exec-header" role="group" aria-label="Run and Select Program">
+            <div class="exec-header" role="group">
                 <button id="runButton" class="run-button">
-                    Run <i class="fas fa-play-circle" aria-hidden="true"></i>
+                    Run <i class="fas fa-play-circle"></i>
                 </button>
 
                 <div class="program-controls">
                     <label class="sr-only" for="programSelect">Choose a program</label>
-                    <select id="programSelect" class="program-dropdown" aria-describedby="programHelp">
+                    <select id="programSelect" class="program-dropdown">
                         <option value="">None — select a program…</option>
                         <!-- options filled by JS -->
                     </select>
-                    <button id="loadXmlButton" class="run-button" aria-describedby="programHelp">Load Program</button>
+                    <button id="loadXmlButton" class="run-button">Load Program</button>
                     <div id="programHelp" class="sr-only">Select a program, then press Load Program to load blocks.</div>
                 </div>
             </div>
 
             <!-- Code panel -->
-            <div class="code-container" aria-labelledby="codeHeader">
+            <div class="code-container">
                 <div class="code-header">
                     <h3 id="codeHeader">Code</h3>
                     <label class="sr-only" for="languageSelect">Language</label>
@@ -75,27 +75,27 @@
             </div>
 
             <!-- Instruction (appears only when a program is selected) -->
-            <section id="instructionSection" class="instruction" hidden aria-labelledby="instructionHeader">
+            <section id="instructionSection" class="instruction" hidden>
                 <h3 id="instructionHeader">
-                    <div class="instruction-header-row" role="toolbar" aria-label="Instruction navigation">
+                    <div class="instruction-header-row" role="toolbar" >
                         <span class="instruction-title">Instruction</span>
-                        <button id="instructionPrev" class="instruction-nav" type="button" aria-label="Previous scenario" title="Previous (←)">‹</button>
-                        <span id="instructionPager" class="instruction-pager" aria-live="polite"></span>
-                        <button id="instructionNext" class="instruction-nav" type="button" aria-label="Next scenario" title="Next (→)">›</button>
+                        <button id="instructionPrev" class="instruction-nav" type="button" title="Previous (←)">‹</button>
+                        <span id="instructionPager" class="instruction-pager"></span>
+                        <button id="instructionNext" class="instruction-nav" type="button" title="Next (→)">›</button>
                     </div>
                 </h3>
                 <div id="instructionBody" class="instruction-body"></div>
             </section>
 
             <!-- Keyboard hints (always visible) -->
-            <section class="keyboard-hints" aria-labelledby="kbdHeader">
+            <section class="keyboard-hints">
                 <div class="kbd-head">
                     <h4 id="kbdHeader">Navigational Hint</h4>
                     <button id="showShortcuts" class="run-button" type="button" title="Show all shortcuts (Ctrl+H)">
-                        Shortcuts <i class="fas fa-circle-info" aria-hidden="true"></i>
+                        Shortcuts <i class="fas fa-circle-info"></i>
                     </button>
                 </div>
-                <dl id="keyboardHintList" class="kbd-list" aria-live="polite"></dl>
+                <dl id="keyboardHintList" class="kbd-list"></dl>
             </section>
         </div>
     </div>
