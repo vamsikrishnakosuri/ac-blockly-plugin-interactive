@@ -1,11 +1,6 @@
 @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;1,100;1,200;1,300;1,400;1,500;1,600;1,700&display=swap');
 
-/* * {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-} */
-
+/* Base */
 body {
     background-color: #f4f4f4;
     font-family: 'IBM Plex Mono', monospace !important;
@@ -15,47 +10,39 @@ select, option, select:focus, option:hover {
     font-family: 'IBM Plex Mono', monospace;
 }
 
-
 #root {
-    /* max-width: 1280px; */
     margin: 0 auto;
     padding: 0 1rem;
     width: 90%;
     height: 100vh;
 }
 
+/* Left workspace + Right execution panel */
 #blocklyDiv,
 .execution-panel {
     height: 100%;
 }
 
-
+/* Navbar */
 .navbar {
     display: flex;
     justify-content: center;
     align-items: center;
     padding: 15px 20px;
 }
-
 .navbar .logo {
     display: flex;
     align-items: center;
     gap: 10px;
 }
-
-.navbar .logo img {
-    height: 40px;
-}
-
+.navbar .logo img { height: 40px; }
 .navbar .logo h1 {
     font-size: 1em;
     font-weight: 600;
 }
 
-
-.editor-panel {
-    flex: 3
-}
+/* Columns */
+.editor-panel { flex: 3; }
 
 .execution-panel {
     flex: 1;
@@ -65,37 +52,16 @@ select, option, select:focus, option:hover {
     flex-direction: column;
     align-items: stretch;
     min-width: 350px;
+    min-height: 0; /* allow inner flex children to shrink & scroll */
 }
 
+/* Buttons & inputs */
 .program-dropdown {
     padding: 5px;
     font-size: 16px;
     border-radius: 5px;
     cursor: pointer;
 }
-
-.code-container,
-#xmlTextArea {
-    box-sizing: border-box;
-}
-
-.code-container {
-    width: 100%;
-    min-height: 45%;
-    max-height: 50%;
-    overflow-y: auto;
-    border: 1px solid #ccc;
-    background: #fff;
-    margin-top: 10px;
-}
-
-.code-container>pre{
-    border: none;
-    font-size: 1em;
-    font-family: 'IBM Plex Mono';
-    padding: 10px;
-}
-
 
 .run-button {
     border: 1px solid #dadce0;
@@ -105,81 +71,315 @@ select, option, select:focus, option:hover {
     cursor: pointer;
     display: inline-block;
     font: 500 14px / 36px var(--font-family);
-    padding: 0px 12px;
+    padding: 0 12px;
     padding-top: 2px;
     width: 82px;
     height: 32px;
     font-weight: 450;
     font-size: 1em;
 }
-
 .run-button:hover {
     background: #e8f0fe;
     border: 1px solid #d2e3fc;
-    box-shadow: 0px 2px 6px rgba(0, 0, 0, 0.2);
+    box-shadow: 0 2px 6px rgba(0,0,0,0.2);
 }
 
+/* Give specific buttons sensible minimums */
+#loadXmlButton { min-width: 145px; }
+#showShortcuts { min-width: 145px; min-height: 30px; margin-bottom: 4px; }
 
-.flex-space {
+/* A11y helpers */
+.visually-hidden,
+.sr-only {
+    position: absolute !important;
+    width: 1px; height: 1px; padding: 0; margin: -1px;
+    overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
+
+/* Header row (Run + Program controls) */
+.exec-header {
     display: flex;
-    justify-content: space-between;
-    width: 100%;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 10px;
+    flex-wrap: wrap;
+    flex: 0 0 auto; /* header uses intrinsic size */
 }
 
+/* keep Run at left; controls area on the right (or next row) */
+.exec-header .program-controls {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    min-width: 0; /* allow shrinking */
+}
+
+/* Responsive: put program controls on full-width next row for narrower screens */
+@media (max-width: 1600px) {
+    .exec-header .program-controls {
+        order: 1;
+        flex: 1 0 100%;
+        width: 100%;
+        margin-left: 0;
+        gap: 10px;
+        min-width: 0;
+    }
+    .program-controls .program-dropdown {
+        flex: 0 1 auto;
+        min-width: 220px;
+    }
+    .program-controls .run-button {
+        margin-left: auto;
+        flex: 0 0 auto;
+        width: 150px;
+    }
+}
+
+@media (max-width: 420px) {
+    .exec-header .program-controls { flex-wrap: wrap; }
+    .program-controls .program-dropdown,
+    .program-controls .run-button {
+        flex: 1 0 100%;
+        width: 100%;
+        margin-left: 0;
+    }
+}
+
+/* Code container (scrollable content) */
+.code-container {
+    flex: 1 1 0;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    width: 100%;
+    border: 1px solid #ccc;
+    background: #fff;
+    margin-top: 0;
+    box-sizing: border-box;
+}
+
+.code-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    border-bottom: 1px solid #eee;
+    padding: 8px 10px;
+    background: #fafafa;
+}
+.code-header h3 {
+    margin: 0;
+    font-size: 0.95rem;
+    font-weight: 600;
+}
+.program-dropdown--sm {
+    font-size: 0.9rem;
+    padding: 3px 6px;
+}
+
+/* the <pre> that shows code is the scroller */
+.code-container > pre {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: auto;
+    border: none;
+    font-size: 1em;
+    font-family: 'IBM Plex Mono';
+    padding: 10px;
+}
 pre.prettyprint {
     padding: 5px 10px !important;
 }
 
 
-.preload-program {
-    flex: 1; /* Take all remaining vertical space */
+/* Instruction Section */
+.instruction {
+    margin-top: 12px;
+    border: 1px solid #d9d9d9;
+    background: #fff;
+    padding: 10px 12px;
+
+    /* sizing & layout */
+    --instruction-max-height: 30%;
+    flex: 0 1 auto;
+    max-height: var(--instruction-max-height);
+    overflow: hidden;
+
     display: flex;
     flex-direction: column;
-    overflow: hidden;
-    margin-top: 10px;
 }
 
-.preload-controls {
-    display: flex;
-    gap: 10px;
-    align-items: center;
-    margin-bottom: 10px;
-    flex-wrap: wrap;
-}
+.instruction[hidden] { display: none !important; }
 
-.preload-controls select {
-    width: 50%;
-}
-
-.preload-controls button {
-    margin-left: auto;
-    width: 150px;
-}
-
-#xmlTextArea {
-    width: 100%;
-    height: 100%;
-    font-family: 'IBM Plex Mono', monospace;
-    font-size: 14px;
-    padding: 10px;
-    border: 1px solid #ccc;
+/* Sticky header */
+#instructionHeader {
+    margin: 0 0 6px 0;
+    font-size: 0.95rem;
+    position: sticky;
+    top: 0;
     background: #fff;
-    line-height: 1.4;
-    resize: vertical;
-    flex: 2;
+    z-index: 1;
+    padding-top: 2px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid #eee;
+}
+
+.instruction-header-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    justify-content: flex-start; /* no space-between */
+}
+
+.instruction-header-row > .instruction-title + * {
+    margin-left: auto;
 }
 
 
-#blockReader{
-    width: 1px;
-    height:1px;
-    position: absolute;
-    left: -999em;
+.instruction-controls {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    white-space: nowrap;
+}
+
+.instruction-pager {
+    white-space: nowrap;
+    text-align: center;
+}
+
+.instruction-pager {
+    font-size: 0.9rem;
+    color: #555;
+    white-space: nowrap;
+    text-align: center;
+}
+
+.instruction-nav {
+    inline-size: 2rem;
+    block-size: 2rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    background: #fafafa;
+    color: #333;
+    cursor: pointer;
+    user-select: none;
+    transition: background-color 120ms ease, border-color 120ms ease;
+}
+
+.instruction-nav:hover:not(:disabled) {
+    background: #f3f3f3;
+    border-color: #d2d2d2;
+}
+
+.instruction-nav:active:not(:disabled) {
+    background: #ededed;
+    border-color: #c8c8c8;
+}
+
+.instruction-nav:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.instruction-nav:focus-visible {
+    outline: 2px solid #4c9ffe;
+    outline-offset: 2px;
+}
+
+/* Scrollable body */
+.instruction-body,
+#instructionBody {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: auto;
+    padding-top: 0;
+}
+
+#instructionBody .scenario-title,
+#instructionBody .scenario-goal {
+    margin-top: 0;
+    margin-bottom: 6px;
 }
 
 
-.visually-hidden {
-    position:absolute !important;
-    width:1px; height:1px; padding:0; margin:-1px;
-    overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; border:0;
+#instructionBody kbd {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+    font-size: 0.85em;
+    padding: 0.1em 0.35em;
+    border: 1px solid #ccc;
+    border-bottom-width: 2px;
+    border-radius: 4px;
+    background: #f9f9f9;
+    color: #333;
+    white-space: nowrap;
 }
+
+/* Responsive tweaks */
+@media (max-width: 520px) {
+    .instruction-header-row { gap: 6px; }
+    .instruction-nav {
+        inline-size: 1.8rem;
+        block-size: 1.8rem;
+    }
+    .instruction-pager { font-size: 0.85rem; }
+}
+
+
+/* keyboard hints fills remaining height and scrolls */
+.keyboard-hints {
+    margin-top: 5px;
+    border: 1px solid #e3e3e3;
+    background: #fff;
+    padding: 10px 12px;
+    flex: 1 1 0;      /* fill leftover height */
+    min-height: 0;    /* allow internal scroll */
+    overflow-y: auto;
+}
+
+.kbd-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin: 0 0 6px 0;
+    /* keep header visible while list scrolls */
+    position: sticky;
+    top: -10px;
+    background: #fff;
+    z-index: 1;
+    border-bottom: 1px solid #eee;
+}
+
+.kbd-head h4 {
+    margin: 0 0 6px 0;
+}
+
+.kbd-list {
+    display: grid;
+    grid-template-columns: max-content 1fr;
+    gap: 6px 16px;
+    margin: 0;
+}
+
+.kbd-list dt { font-weight: 600; }
+.kbd-list dt kbd {
+    border: 1px solid #cfcfcf;
+    padding: 1px 6px;
+    border-radius: 3px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.88rem;
+    background: #f7f7f7;
+}
+
+.kbd-list dd {
+    margin-inline-start: 0;
+}
+
+pre code { white-space: pre; }
