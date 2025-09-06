@@ -1,6 +1,6 @@
 // shortcut_assistance.js
 import * as Constants from '../constants';
-import {Speech} from '../audio/speech';
+import { Speech } from '../audio/speech';
 
 export class ShortcutAssistance {
     /**
@@ -12,14 +12,22 @@ export class ShortcutAssistance {
         this.root = null;
         this.listEl = null;
         this.items = [];
-        this.index = -1;             // start with NO SELECTION
+        this.index = -1; // start with NO SELECTION
         this.isOpen = false;
         this.prevFocus = null;
+
+        // search state
+        this.searchInput = null;
+
+        // data sources
+        this.rowsMaster = []; // immutable reference data
+        this.rowsView = [];   // currently rendered rows (filtered)
 
         // bound
         this._onKeydownInDialog = this._onKeydownInDialog.bind(this);
         this._onClickBackdrop = this._onClickBackdrop.bind(this);
         this._onFocusInGuard = this._onFocusInGuard.bind(this);
+        this._onSearchInput = this._onSearchInput.bind(this);
     }
 
     init() {
@@ -35,6 +43,7 @@ export class ShortcutAssistance {
         this.listEl = null;
         this.items = [];
         this.index = -1;
+        this.searchInput = null;
     }
 
     toggle() {
@@ -51,24 +60,24 @@ export class ShortcutAssistance {
         // VISUALLY OPEN
         this.root.classList.add('acc-shortcuts--open');
 
-        // Make subtree AT-visible and focusable
-        this.root.removeAttribute('inert');
-        this.root.setAttribute('aria-hidden', 'true');
-
         // Keep all items unfocused; selection is visual only.
         this.items.forEach(el => (el.tabIndex = -1));
         this.index = -1;
 
+        // reset search UI
+        if (this.searchInput) {
+            this.searchInput.value = '';
+            this._applySearchFilterNow(); // show all rows
+        }
+
         // Focus dialog shell (never a list item)
         try {
             this.root.querySelector('.acc-shortcuts__dialog')?.focus();
-        } catch {
-        }
+        } catch {}
 
-        const modName = this._os().isMac ? 'Option plus H' : 'Alt plus H';
         this.speech.update(
-            'Shortcut help opened. Use W or S to navigate the shortcuts list. ' +
-            `Press Escape or ${modName} to close.`
+            'Shortcut help opened. Use W or S to navigate shortcuts. ' +
+            'Press Slash to search. Press Escape key to close.'
         );
 
         // Capture keystrokes while open (but allow modified combos through)
@@ -88,12 +97,7 @@ export class ShortcutAssistance {
         const fallback = document.querySelector('#blocklyDiv') || document.body;
         try {
             (this.prevFocus || fallback)?.focus?.();
-        } catch {
-        }
-
-        // Hide from AT & make inert to future focusing
-        this.root.setAttribute('aria-hidden', 'false');
-        this.root.setAttribute('inert', '');
+        } catch {}
 
         this.speech.update('Shortcut help closed.');
     }
@@ -103,7 +107,7 @@ export class ShortcutAssistance {
         const ua = `${navigator.platform || ''} ${navigator.userAgent || ''}`.toLowerCase();
         const isMac = /mac|iphone|ipad|ipod/.test(ua);
         const isWin = /win/.test(ua);
-        return {isMac, isWin, isLinux: !isMac && !isWin};
+        return { isMac, isWin, isLinux: !isMac && !isWin };
     }
 
     _labelFor(key) {
@@ -157,39 +161,106 @@ export class ShortcutAssistance {
         if (document.getElementById('acc-shortcuts-style')) return;
         const css = `
 /* Shortcut Assistance (auto-injected) */
-.acc-shortcuts { position: fixed; inset: 0; z-index: 9999; pointer-events: none;
+.acc-shortcuts {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  pointer-events: none;
+
   /* Tunables for spacing & alignment */
-  --keysCol: clamp(180px, 32vw, 140px);
-  --colGap : 2px;
+  --keysCol: clamp(140px, 22vw, 260px);
+  --colGap: 12px;
 }
-.acc-shortcuts__backdrop { position: absolute; inset: 0; background: rgba(0,0,0,.35);
-  opacity: 0; transition: opacity .14s ease; pointer-events: none; }
-.acc-shortcuts--open .acc-shortcuts__backdrop { opacity: 1; pointer-events: auto; }
-.acc-shortcuts__dialog { position: absolute; top: 50%; left: 50%;
+/* Enable pointer interaction while open */
+.acc-shortcuts--open { pointer-events: auto; }
+
+.acc-shortcuts__backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0,0,0,.35);
+  opacity: 0;
+  transition: opacity .14s ease;
+  pointer-events: none;
+}
+.acc-shortcuts--open .acc-shortcuts__backdrop {
+  opacity: 1;
+  pointer-events: auto;
+}
+.acc-shortcuts__dialog {
+  position: absolute;
+  top: 50%;
+  left: 50%;
   transform: translate(-50%, -50%) scale(.985);
   inline-size: clamp(360px, 56vw, 860px);
   max-block-size: min(82vh, 720px);
-  background: #fff; color: #111; border-radius: 12px;
+  background: #fff;
+  color: #111;
+  border-radius: 12px;
   box-shadow: 0 12px 36px rgba(0,0,0,.22);
-  display: flex; flex-direction: column; overflow: hidden;
-  opacity: 0; transition: opacity .14s ease, transform .14s ease;
-  pointer-events: auto; outline: none; }
-.acc-shortcuts--open .acc-shortcuts__dialog { opacity: 1; transform: translate(-50%, -50%) scale(1); }
-.acc-shortcuts__header { padding: 14px 16px; border-bottom: 1px solid #eee;
-  display:flex; align-items:center; justify-content:space-between; }
-.acc-shortcuts__title { margin: 0; font-weight: 600; font-size: 17px; }
-.acc-shortcuts__close { appearance: none; background: transparent; border: 0; font-size: 20px; cursor: pointer;
-  line-height: 1; padding: 4px; border-radius: 8px; }
-.acc-shortcuts__close:focus-visible { outline: 2px solid #4c8bf5; outline-offset: 2px; }
-.acc-shortcuts__body { padding: 0; overflow: auto; }
-.acc-shortcuts__intro { margin: 12px 16px; color: #333; font-size: 13.5px; }
-.acc-shortcuts__footer { padding: 10px 14px; font-size: 12.5px; color: #444; border-top: 1px solid #eee; }
-.acc-shortcuts__list { list-style: none; margin: 0; padding: 6px 0; }
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  opacity: 0;
+  transition: opacity .14s ease, transform .14s ease;
+  pointer-events: auto;
+  outline: none;
+}
+.acc-shortcuts--open .acc-shortcuts__dialog {
+  opacity: 1;
+  transform: translate(-50%, -50%) scale(1);
+}
+.acc-shortcuts__header {
+  padding: 14px 16px;
+  border-bottom: 1px solid #eee;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+}
+.acc-shortcuts__title {
+  margin: 0;
+  font-weight: 600;
+  font-size: 17px;
+}
+.acc-shortcuts__close {
+  appearance: none;
+  background: transparent;
+  border: 0;
+  font-size: 20px;
+  cursor: pointer;
+  line-height: 1;
+  padding: 4px;
+  border-radius: 8px;
+}
+.acc-shortcuts__close:focus-visible {
+  outline: 2px solid #4c8bf5;
+  outline-offset: 2px;
+}
+.acc-shortcuts__body {
+  padding: 0;
+  overflow: auto;
+}
+.acc-shortcuts__intro {
+  margin: 12px 16px;
+  color: #333;
+  font-size: 13.5px;
+}
+.acc-shortcuts__footer {
+  padding: 10px 14px;
+  font-size: 12.5px;
+  color: #444;
+  border-top: 1px solid #eee;
+}
+.acc-shortcuts__list {
+  list-style: none;
+  margin: 0;
+  padding: 6px 0;
+}
 
-/* Rows: align descriptions with a fixed keys column */
+/* Rows: title/description flexible, keys fixed */
 .acc-shortcuts__item {
   display: grid;
-  grid-template-columns: var(--keysCol) 1fr;
+  /* Title (flex) | Keys (fixed-ish) */
+  grid-template-columns: 1fr minmax(136px, var(--keysCol));
   column-gap: var(--colGap);
   row-gap: 8px;
   align-items: start;
@@ -198,26 +269,41 @@ export class ShortcutAssistance {
   outline: none;
   font-size: 14px;
 }
-.acc-shortcuts__item + .acc-shortcuts__item { border-top: 1px solid #f0f2f6; }
+.acc-shortcuts__item + .acc-shortcuts__item {
+  border-top: 1px solid #f0f2f6;
+}
 .acc-shortcuts__item[tabindex="0"]:focus {
-  background: #f6f7fb; box-shadow: inset 0 0 0 2px #4c8bf5;
+  background: #f6f7fb;
+  box-shadow: inset 0 0 0 2px #4c8bf5;
 }
 
-/* Key chips */
+/* Key chips (right column) */
 .acc-shortcuts__keys {
-  display: inline-flex; flex-wrap: wrap; gap: 6px;
-  align-items: center; justify-self: start;
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  justify-self: end;        /* right edge of the keys column */
   min-block-size: 28px;
-  margin-inline-end: 0;
+  margin-inline-start: 12px;
 }
 .acc-shortcuts__kbd {
-  display: inline-block; min-width: 22px; padding: 3px 9px; border-radius: 7px;
-  background: #f8fafc; border: 1px solid #cfd7e3; color: #111827;
+  display: inline-block;
+  min-width: 22px;
+  padding: 3px 9px;
+  border-radius: 7px;
+  background: #f8fafc;
+  border: 1px solid #cfd7e3;
+  color: #111827;
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  font-size: 13.5px; line-height: 20px; font-weight: 600; letter-spacing: .2px; white-space: nowrap;
+  font-size: 13.5px;
+  line-height: 20px;
+  font-weight: 600;
+  letter-spacing: .2px;
+  white-space: nowrap;
 }
 
-/* Description column */
+/* Description column (title first) */
 .acc-shortcuts__desc {
   line-height: 1.45;
   justify-self: start;
@@ -226,14 +312,52 @@ export class ShortcutAssistance {
   flex-direction: column;
   justify-content: center;
   align-items: flex-start;
+  overflow-wrap: anywhere;  /* long titles won’t push layout */
 }
-.acc-shortcuts__descTitle { font-weight: 600; margin: 0 0 2px 0; }
-.acc-shortcuts__descDetail { color: #444; margin: 0; text-align: left; }
+.acc-shortcuts__descTitle {
+  font-weight: 600;
+  margin: 0 0 2px 0;
+}
+.acc-shortcuts__descDetail {
+  color: #444;
+  margin: 0;
+  text-align: left;
+}
+
+/* Search UI */
+.acc-shortcuts__search {
+  margin: 8px 12px 4px 12px; /* align with list item side padding */
+}
+.acc-shortcuts__searchLabel {
+  position: absolute;
+  inline-size: 1px;
+  block-size: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+.acc-shortcuts__searchInput {
+  display: block;
+  inline-size: 100%;
+  box-sizing: border-box;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid #cfd7e3;
+  font-size: 14px;
+  background: #fff;
+}
+.acc-shortcuts__searchInput:focus-visible {
+  outline: 2px solid #4c8bf5;
+  outline-offset: 2px;
+}
 
 @media (max-width: 640px) {
   .acc-shortcuts__dialog { inline-size: calc(100vw - 24px); }
   .acc-shortcuts__item { grid-template-columns: 1fr; }
-  .acc-shortcuts__keys { margin-bottom: 6px; }
+  .acc-shortcuts__keys {
+    justify-self: start;
+    margin-top: 6px;
+  }
 }
 @media (prefers-color-scheme: dark) {
   .acc-shortcuts__dialog { background: #1f2023; color: #f0f2f5; }
@@ -242,10 +366,12 @@ export class ShortcutAssistance {
   .acc-shortcuts__kbd { background: #2a2c31; border-color: #4a4f59; color: #f6f7fb; }
   .acc-shortcuts__header, .acc-shortcuts__footer { border-color: #2b2e33; }
   .acc-shortcuts__intro, .acc-shortcuts__descDetail { color: #cfd3da; }
+  .acc-shortcuts__searchInput { background: #1f2023; color: #f0f2f5; border-color: #4a4f59; }
 }
 @media (forced-colors: active) {
   .acc-shortcuts__item[tabindex="0"]:focus { outline: 2px solid Highlight; outline-offset: 0; box-shadow: none; }
   .acc-shortcuts__kbd { border: 1px solid CanvasText; background: Canvas; color: CanvasText; }
+  .acc-shortcuts__searchInput { border: 1px solid CanvasText; }
 }
 @media (prefers-reduced-motion: reduce) {
   .acc-shortcuts__backdrop, .acc-shortcuts__dialog { transition: none !important; }
@@ -258,6 +384,20 @@ export class ShortcutAssistance {
 
 .acc-shortcuts__body { overscroll-behavior: contain; }
 .acc-shortcuts__item { scroll-margin-block: 8px; }
+/* Hidden, focusable sentinel to keep screen readers in focus mode */
+.acc-shortcuts__modeLock{
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  margin: -1px !important;
+  padding: 0 !important;
+  border: 0 !important;
+  overflow: hidden !important;
+  clip: rect(0 0 0 0) !important;
+  clip-path: inset(50%) !important;
+  white-space: nowrap !important;
+}
+
 `.trim();
         const style = document.createElement('style');
         style.id = 'acc-shortcuts-style';
@@ -272,16 +412,24 @@ export class ShortcutAssistance {
         root.className = 'acc-shortcuts';
         root.innerHTML = `
       <div class="acc-shortcuts__backdrop" data-close="1"></div>
-      <div class="acc-shortcuts__dialog" tabindex="-1">
+      <div class="acc-shortcuts__dialog">
         <div class="acc-shortcuts__header">
           <h2 class="acc-shortcuts__title" id="acc-shortcuts-title">Keyboard Shortcuts</h2>
-          <button class="acc-shortcuts__close" type="button" aria-label="Close shortcut help" data-close="1">✕</button>
+          <button class="acc-shortcuts__close" type="button" data-close="1">✕</button>
         </div>
         <div class="acc-shortcuts__body">
           <p class="acc-shortcuts__intro">
-            Press W and S keys to move through shortcuts list. Press Escape (ESC) key to close the shortcut help.
+            Press W and S keys to move through shortcuts list. Press / to search. Press Escape (ESC) to close the shortcut help.
           </p>
-          <ul class="acc-shortcuts__list"></ul>
+          <div class="acc-shortcuts__search">
+            <label class="acc-shortcuts__searchLabel" for="acc-shortcuts-search">Search shortcuts</label>
+            <input id="acc-shortcuts-search"
+                   class="acc-shortcuts__searchInput"
+                   type="text"
+                   placeholder="Search shortcuts…"
+                   autocomplete="off" />
+          </div>
+          <ul class="acc-shortcuts__list" id="acc-shortcuts-list"></ul>
         </div>
         <div class="acc-shortcuts__footer">
           Tip: On macOS, “Ctrl” is shown as “⌘” (Command) and “Alt” is shown as “⌥” (Option).
@@ -289,46 +437,166 @@ export class ShortcutAssistance {
       </div>
     `;
 
-        // Hidden by default & inert (prevents any focusing)
-        root.setAttribute('aria-hidden', 'true');
-        root.setAttribute('inert', '');
         document.body.appendChild(root);
 
         // Dialog semantics
         const dialog = root.querySelector('.acc-shortcuts__dialog');
-        dialog.setAttribute('role', 'dialog');
-        dialog.setAttribute('aria-modal', 'true');
-        dialog.setAttribute('aria-labelledby', 'acc-shortcuts-title');
+        // Stop underlying app from hijacking pointer/focus; allow close button to work.
+        const swallow = (e) => e.stopPropagation();
+        dialog.addEventListener('pointerdown', swallow, true);
+        dialog.addEventListener('mousedown',   swallow, true);
+        dialog.addEventListener('touchstart',  swallow, true);
+        dialog.addEventListener('click', (e) => {
+            const t = e.target;
+            if (t && t.getAttribute && t.getAttribute('data-close') === '1') {
+                e.stopPropagation();
+                e.preventDefault();
+                this.close();
+            } else {
+                e.stopPropagation();
+            }
+        }, true);
 
         const list = root.querySelector('.acc-shortcuts__list');
 
-        // Build rows
-        const rows = Constants.SHORTCUT_HELP_ROWS;
-        rows.forEach((row) => {
-            const li = document.createElement('li');
-            li.className = 'acc-shortcuts__item';
-            li.tabIndex = -1; // not focusable
-            const keysHTML = this._rowKeysToHTML(row.keys);
-            li.innerHTML = `
-        <div class="acc-shortcuts__keys">${keysHTML}</div>
-        <div class="acc-shortcuts__desc">
-          <div class="acc-shortcuts__descTitle">${row.title}</div>
-          ${row.detail ? `<div class="acc-shortcuts__descDetail">${row.detail}</div>` : ''}
-        </div>
-      `;
-            list.appendChild(li);
-        });
+        const body = root.querySelector('.acc-shortcuts__body');
+        const searchWrap = root.querySelector('.acc-shortcuts__search');
+
+// Create a hidden contenteditable "mode lock" to force SR focus mode
+        const lock = document.createElement('div');
+        lock.className = 'acc-shortcuts__modeLock';
+        lock.setAttribute('contenteditable', 'true');
+        lock.setAttribute('tabindex', '-1'); // programmatic focus only
+        lock.setAttribute(
+            'aria-label',
+            'Results focused. Use W or S to navigate. Press Slash to edit search.'
+        );
+// Keep it empty and prevent any text from sticking
+        lock.addEventListener('beforeinput', (e) => e.preventDefault());
+        lock.addEventListener('input', () => { lock.textContent = ''; });
+
+        searchWrap.insertAdjacentElement('afterend', lock);
+        this._modeLock = lock;
 
         // cache
         this.root = root;
         this.listEl = list;
-        this.items = Array.from(list.querySelectorAll('.acc-shortcuts__item'));
 
-        // click-to-close on backdrop / button
+        // data: immutable reference + initial view
+        this.rowsMaster = Array.isArray(Constants.SHORTCUT_HELP_ROWS)
+            ? Constants.SHORTCUT_HELP_ROWS.slice()
+            : [];
+        this.rowsView = this.rowsMaster.slice();
+
+        // initial render
+        this._renderList(this.rowsView);
+
+        // search
+        this.searchInput = root.querySelector('#acc-shortcuts-search');
+        this.searchInput?.addEventListener('input', this._onSearchInput);
+        // this.searchInput?.setAttribute('role', 'none');
+        // this.searchInput?.setAttribute('tabIndex', '-1');
+
+
+        // click-to-close on backdrop
         root.addEventListener('click', this._onClickBackdrop, true);
 
-        // Guard: if the hidden modal (aria-hidden/inert) ever receives focus, bounce it back out
+        // Guard: if the hidden modal ever receives focus, bounce it back out
         root.addEventListener('focusin', this._onFocusInGuard, true);
+    }
+
+    _renderList(rows) {
+        if (!this.listEl) return;
+
+        // Reset selection whenever the view changes
+        this.index = -1;
+
+        const frag = document.createDocumentFragment();
+        for (const row of rows) {
+            const li = document.createElement('li');
+            li.className = 'acc-shortcuts__item';
+            li.tabIndex = -1; // not focusable
+
+            const keysHTML = this._rowKeysToHTML(row.keys);
+            li.innerHTML = `
+              <div class="acc-shortcuts__desc">
+                <div class="acc-shortcuts__descTitle">${row.title}</div>
+                ${row.detail ? `<div class="acc-shortcuts__descDetail">${row.detail}</div>` : ''}
+              </div>
+              <div class="acc-shortcuts__keys">${keysHTML}</div>
+            `;
+
+            const srLabel = (row.sr && row.sr.trim()) || '';
+            li.dataset.sr = srLabel;
+            frag.appendChild(li);
+        }
+
+        this.listEl.innerHTML = '';
+        this.listEl.appendChild(frag);
+        this.items = Array.from(this.listEl.querySelectorAll('.acc-shortcuts__item'));
+        this.rowsView = rows.slice();
+    }
+
+    _normalize(str) {
+        return (str || '')
+            .toLowerCase()
+            .normalize('NFKD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .replace(/[^a-z0-9\s]/g, ' ')
+            .replace(/\s+/g, ' ')
+            .trim();
+    }
+
+    _tokens(str) {
+        const stop = new Set(['the','to','a','an','of','and','or','in','on','with','for','press','key','keys','mode','move']);
+        return this._normalize(str).split(' ').filter(t => t && !stop.has(t));
+    }
+
+    _scoreTitle(title, query) {
+        if (!query) return 1;
+        const t = this._normalize(title);
+        const qTokens = this._tokens(query);
+        if (!qTokens.length) return 0;
+        let score = 0;
+        for (const tok of qTokens) {
+            if (t.includes(tok)) score += 2;
+            else if (tok.length >= 3) {
+                const stem = tok.slice(0, -1);
+                if (stem && t.includes(stem)) score += 1;
+            }
+        }
+        return score;
+    }
+
+    _applySearchFilter(query) {
+        const q = (query || '').trim();
+
+        // Build filtered view from the immutable master list
+        const filtered = q
+            ? this.rowsMaster
+                .map((row, i) => ({ row, score: this._scoreTitle(row.title, q), i }))
+                .filter(x => x.score > 0)
+                .sort((a, b) => b.score - a.score || a.i - b.i)
+                .map(x => x.row)
+            : this.rowsMaster.slice();
+
+        this._renderList(filtered);
+
+        // Speech feedback
+        if (q.length) {
+            const total = filtered.length;
+            const msg = total === 1
+                ? '1 shortcut found. Press Escape to focus it, then use W or S to navigate.'
+                : `${total} shortcuts found. Press Escape to focus result, then W or S to navigate.`;
+            this.speech.update(msg);
+        } else {
+            this.speech.update(`${this.items.length} shortcuts available.`);
+        }
+    }
+
+    _applySearchFilterNow() {
+        const q = this.searchInput?.value ?? '';
+        this._applySearchFilter(q);
     }
 
     // Guard against focus inside hidden modal
@@ -337,11 +605,9 @@ export class ShortcutAssistance {
         const isHidden = this.root.getAttribute('aria-hidden') === 'true';
         if (!isHidden) return;
         const fallback = document.querySelector('#blocklyDiv') || document.body;
-        // Move focus away immediately to avoid "Blocked aria-hidden..." and leave AT tree consistent
         try {
             (this.prevFocus || fallback)?.focus?.();
-        } catch {
-        }
+        } catch {}
     }
 
     // speech + visual selection
@@ -360,19 +626,45 @@ export class ShortcutAssistance {
 
         if (speak) {
             // build a spoken label from DOM content
-            const keysTxt = el.querySelector('.acc-shortcuts__keys')?.textContent?.trim() || '';
-            const title = el.querySelector('.acc-shortcuts__descTitle')?.textContent?.trim() || '';
-            const detail = el.querySelector('.acc-shortcuts__descDetail')?.textContent?.trim() || '';
-            const label = detail ? `Shortcut ${keysTxt}. ${title}. ${detail}` : `Shortcut ${keysTxt}. ${title}`;
+            const row = this.rowsView[nextIndex] || {};
+            let label = (row.sr && row.sr.trim()) || el.dataset.sr || el.getAttribute('aria-label') || '';
             const pos = `${this.index + 1} of ${this.items.length}`;
-            this.speech.update(`${label}. Item ${pos}. Use W or S to move, Escape to close.`);
+            this.speech.update(`${label}`);
         }
     }
+
+    _focusModeLock() {
+        const lock = this._modeLock;
+        if (!lock) return;
+        lock.textContent = ''; // ensure empty
+        // Focusing a contenteditable reliably switches SR to focus mode
+        requestAnimationFrame(() => {
+            try { lock.focus(); } catch {}
+        });
+    }
+
 
     // key events while dialog is open
     _onKeydownInDialog(e) {
         const key = e.key;
         const code = e.code;
+        const target = e.target;
+
+        // If typing in the search field: Esc jumps to first result (list already filtered)
+        if (target === this.searchInput) {
+            if (key === 'Escape') {
+                e.preventDefault();
+                e.stopPropagation();
+                this._applySearchFilterNow();
+                if (this.items.length > 0) {
+                    this._setActive(0, /*speak*/ true);
+                    this._focusModeLock();
+                } else {
+                    this.close();
+                }
+            }
+            return; // allow normal typing, including '/'
+        }
 
         // Close (Esc or Alt+H)
         const altH = (key === 'h' || key === 'H') && e.altKey && !e.ctrlKey && !e.metaKey && !e.shiftKey;
@@ -383,8 +675,16 @@ export class ShortcutAssistance {
             return;
         }
 
-        // navigate using W/S (no modifiers)
+        // Slash launches search (no modifiers). If focused on results, also reset text.
         const noMods = !e.altKey && !e.ctrlKey && !e.metaKey && !e.shiftKey;
+        const isSlash = key === '/' || code === 'Slash';
+        if (noMods && isSlash) {
+            e.preventDefault();
+            this._focusSearchBar(/*reset*/ true); // clears and focuses
+            return;
+        }
+
+        // navigate using W/S (no modifiers)
         const up = noMods && (code === 'KeyW' || key === 'w' || key === 'W');
         const down = noMods && (code === 'KeyS' || key === 's' || key === 'S');
 
@@ -392,17 +692,20 @@ export class ShortcutAssistance {
             e.preventDefault();
             e.stopPropagation();
 
-            // First navigation selects initial item (none selected at open)
+            if (this.items.length === 0) return;
+
+            // First navigation selects first/last item in the CURRENT (filtered) view
             if (this.index === -1) {
                 this._setActive(down ? 0 : this.items.length - 1, /*speak*/ true);
                 return;
             }
 
-            this._setActive(this.index + (up ? -1 : 1), /*speak*/ true);
+            const next = Math.max(0, Math.min(this.items.length - 1, this.index + (up ? -1 : 1)));
+            this._setActive(next, true);
             return;
         }
 
-        // page up and down
+        // page up/down
         if (key === 'PageUp') {
             e.preventDefault();
             e.stopPropagation();
@@ -416,7 +719,7 @@ export class ShortcutAssistance {
             return;
         }
 
-        // Swallow only unmodified letters/digits; let modified combos (Ctrl/Meta/Alt/Shift) through to Blockly.
+        // Swallow only unmodified letters/digits so they don't leak to workspace
         const isLetterOrDigit = /^[a-z0-9]$/i.test(key);
         const hasModifier = e.ctrlKey || e.metaKey || e.altKey || e.shiftKey;
         if (isLetterOrDigit && !hasModifier) {
@@ -440,7 +743,6 @@ export class ShortcutAssistance {
             scroller.scrollTop = sTop - (sRect.top - r.top) - pad;
             return;
         }
-
         if (r.bottom > sRect.bottom - pad) {
             scroller.scrollTop = sTop + (r.bottom - sRect.bottom) + pad;
         }
@@ -452,5 +754,33 @@ export class ShortcutAssistance {
             e.preventDefault();
             this.close();
         }
+    }
+
+    /* --------------------------
+     * Search implementation
+     * -------------------------- */
+    _focusSearchBar(reset = false) {
+        const input = this.searchInput;
+        if (!input) return;
+
+        if (reset) {
+            input.value = '';
+            this._applySearchFilterNow(); // show all rows again immediately
+        }
+
+        // Focus after the keydown cycle to avoid conflicts with capture listeners / browser defaults
+        requestAnimationFrame(() => {
+            try {
+                input.focus();
+                if (reset) input.select();
+            } catch {}
+        });
+
+        this.speech.update('Search shortcuts. Type to filter by title. Press Escape to jump to results.');
+    }
+
+    _onSearchInput(e) {
+        const q = e.currentTarget?.value ?? '';
+        this._applySearchFilter(q); // immediate re-render on each keystroke
     }
 }
