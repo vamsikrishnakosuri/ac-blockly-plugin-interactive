@@ -28,7 +28,8 @@
         </div>
     </nav>
     <div style="display: flex; height: 90%;">
-        <div role="application"
+        <div id="blocklyApp"
+             role="application"
              tabindex="0"
              aria-label="Blockly workspace"
              style="flex:2; position:relative;">
@@ -53,7 +54,6 @@
                         <!-- options filled by JS -->
                     </select>
                     <button id="loadXmlButton" class="run-button">Load Program</button>
-                    <div id="programHelp" class="sr-only">Select a program, then press Load Program to load blocks.</div>
                 </div>
             </div>
 
@@ -90,7 +90,7 @@
             <!-- Keyboard hints (always visible) -->
             <section class="keyboard-hints">
                 <div class="kbd-head">
-                    <h4 id="kbdHeader">Navigational Hint</h4>
+                    <h4 id="kbdHeader">Navigational Assistant</h4>
                     <button id="showShortcuts" class="run-button" type="button" title="Show all shortcuts (Ctrl+H)">
                         Shortcuts <i class="fas fa-circle-info"></i>
                     </button>

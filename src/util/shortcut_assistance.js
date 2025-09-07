@@ -31,7 +31,6 @@ export class ShortcutAssistance {
     }
 
     init() {
-        this._ensureDOM();
         this._ensureCSS();
     }
 
@@ -51,8 +50,8 @@ export class ShortcutAssistance {
     }
 
     open() {
-        this._ensureDOM();
-        this._ensureCSS();
+        // build DOM only when needed
+        if (!this.root) this._ensureDOM();
         if (this.isOpen) return;
 
         this.prevFocus = document.activeElement;
@@ -88,18 +87,34 @@ export class ShortcutAssistance {
     close() {
         if (!this.isOpen) return;
 
-        // VISUALLY CLOSE
-        this.root.classList.remove('acc-shortcuts--open');
-        document.removeEventListener('keydown', this._onKeydownInDialog, true);
-        this.isOpen = false;
-
-        // Move focus OUT before hiding from AT
-        const fallback = document.querySelector('#blocklyDiv') || document.body;
+        // return focus to Blockly wrapper first
+        const fallback =
+            document.getElementById('blocklyApp') ||
+            document.getElementById('blocklyDiv') ||
+            document.body;
         try {
             (this.prevFocus || fallback)?.focus?.();
         } catch {}
 
+        this.prevFocus = null;
+        this.isOpen = false;
+
         this.speech.update('Shortcut help closed.');
+
+        // remove from DOM so nothing can intercept clicks
+        this._teardownDOM();
+    }
+
+    _teardownDOM() {
+        document.removeEventListener('keydown', this._onKeydownInDialog, true);
+        if (this.root?.parentNode) this.root.parentNode.removeChild(this.root);
+
+        this.root = null;
+        this.listEl = null;
+        this.items = [];
+        this.index = -1;
+        this.searchInput = null;
+        this._modeLock = null;
     }
 
     // helpers
@@ -161,19 +176,25 @@ export class ShortcutAssistance {
         if (document.getElementById('acc-shortcuts-style')) return;
         const css = `
 /* Shortcut Assistance (auto-injected) */
+/* ===========================
+   Shortcut Assistance (modal)
+   =========================== */
+
 .acc-shortcuts {
   position: fixed;
   inset: 0;
   z-index: 9999;
-  pointer-events: none;
-
-  /* Tunables for spacing & alignment */
-  --keysCol: clamp(140px, 22vw, 260px);
-  --colGap: 12px;
+  display: none;          /* closed by default */
+  pointer-events: none;   /* not hit-testable when closed */
 }
-/* Enable pointer interaction while open */
-.acc-shortcuts--open { pointer-events: auto; }
 
+/* Only interactive/visible when open */
+.acc-shortcuts.acc-shortcuts--open {
+  display: block;
+  pointer-events: auto;
+}
+
+/* Backdrop */
 .acc-shortcuts__backdrop {
   position: absolute;
   inset: 0;
@@ -186,11 +207,13 @@ export class ShortcutAssistance {
   opacity: 1;
   pointer-events: auto;
 }
+
+/* Dialog */
 .acc-shortcuts__dialog {
   position: absolute;
   top: 50%;
   left: 50%;
-  transform: translate(-50%, -50%) scale(.985);
+  transform: translate(-50%,-50%) scale(.985);
   inline-size: clamp(360px, 56vw, 860px);
   max-block-size: min(82vh, 720px);
   background: #fff;
@@ -202,19 +225,24 @@ export class ShortcutAssistance {
   overflow: hidden;
   opacity: 0;
   transition: opacity .14s ease, transform .14s ease;
-  pointer-events: auto;
+  pointer-events: auto;   /* dialog itself is interactive */
   outline: none;
+  inline-size: clamp(300px, 42vw, 640px);   /* narrower */
+  max-block-size: min(76vh, 640px);         /* slightly shorter */
+  border-radius: 10px;
 }
 .acc-shortcuts--open .acc-shortcuts__dialog {
   opacity: 1;
-  transform: translate(-50%, -50%) scale(1);
+  transform: translate(-50%,-50%) scale(1);
 }
+
+/* Header */
 .acc-shortcuts__header {
   padding: 14px 16px;
   border-bottom: 1px solid #eee;
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 }
 .acc-shortcuts__title {
   margin: 0;
@@ -235,6 +263,8 @@ export class ShortcutAssistance {
   outline: 2px solid #4c8bf5;
   outline-offset: 2px;
 }
+
+/* Body */
 .acc-shortcuts__body {
   padding: 0;
   overflow: auto;
@@ -244,89 +274,18 @@ export class ShortcutAssistance {
   color: #333;
   font-size: 13.5px;
 }
+
+/* Footer */
 .acc-shortcuts__footer {
   padding: 10px 14px;
   font-size: 12.5px;
   color: #444;
   border-top: 1px solid #eee;
 }
-.acc-shortcuts__list {
-  list-style: none;
-  margin: 0;
-  padding: 6px 0;
-}
 
-/* Rows: title/description flexible, keys fixed */
-.acc-shortcuts__item {
-  display: grid;
-  /* Title (flex) | Keys (fixed-ish) */
-  grid-template-columns: 1fr minmax(136px, var(--keysCol));
-  column-gap: var(--colGap);
-  row-gap: 8px;
-  align-items: start;
-  justify-items: start;
-  padding: 10px 12px;
-  outline: none;
-  font-size: 14px;
-}
-.acc-shortcuts__item + .acc-shortcuts__item {
-  border-top: 1px solid #f0f2f6;
-}
-.acc-shortcuts__item[tabindex="0"]:focus {
-  background: #f6f7fb;
-  box-shadow: inset 0 0 0 2px #4c8bf5;
-}
-
-/* Key chips (right column) */
-.acc-shortcuts__keys {
-  display: inline-flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  align-items: center;
-  justify-self: end;        /* right edge of the keys column */
-  min-block-size: 28px;
-  margin-inline-start: 12px;
-}
-.acc-shortcuts__kbd {
-  display: inline-block;
-  min-width: 22px;
-  padding: 3px 9px;
-  border-radius: 7px;
-  background: #f8fafc;
-  border: 1px solid #cfd7e3;
-  color: #111827;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  font-size: 13.5px;
-  line-height: 20px;
-  font-weight: 600;
-  letter-spacing: .2px;
-  white-space: nowrap;
-}
-
-/* Description column (title first) */
-.acc-shortcuts__desc {
-  line-height: 1.45;
-  justify-self: start;
-  text-align: left;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: flex-start;
-  overflow-wrap: anywhere;  /* long titles won’t push layout */
-}
-.acc-shortcuts__descTitle {
-  font-weight: 600;
-  margin: 0 0 2px 0;
-}
-.acc-shortcuts__descDetail {
-  color: #444;
-  margin: 0;
-  text-align: left;
-}
-
-/* Search UI */
+/* Search */
 .acc-shortcuts__search {
-  margin: 8px 12px 4px 12px; /* align with list item side padding */
+  margin: 8px 12px 4px 12px;
 }
 .acc-shortcuts__searchLabel {
   position: absolute;
@@ -351,40 +310,97 @@ export class ShortcutAssistance {
   outline-offset: 2px;
 }
 
-@media (max-width: 640px) {
-  .acc-shortcuts__dialog { inline-size: calc(100vw - 24px); }
-  .acc-shortcuts__item { grid-template-columns: 1fr; }
-  .acc-shortcuts__keys {
-    justify-self: start;
-    margin-top: 6px;
-  }
-}
-@media (prefers-color-scheme: dark) {
-  .acc-shortcuts__dialog { background: #1f2023; color: #f0f2f5; }
-  .acc-shortcuts__item + .acc-shortcuts__item { border-color: #2b2e33; }
-  .acc-shortcuts__item[tabindex="0"]:focus { background: #27292d; box-shadow: inset 0 0 0 2px #4c8bf5; }
-  .acc-shortcuts__kbd { background: #2a2c31; border-color: #4a4f59; color: #f6f7fb; }
-  .acc-shortcuts__header, .acc-shortcuts__footer { border-color: #2b2e33; }
-  .acc-shortcuts__intro, .acc-shortcuts__descDetail { color: #cfd3da; }
-  .acc-shortcuts__searchInput { background: #1f2023; color: #f0f2f5; border-color: #4a4f59; }
-}
-@media (forced-colors: active) {
-  .acc-shortcuts__item[tabindex="0"]:focus { outline: 2px solid Highlight; outline-offset: 0; box-shadow: none; }
-  .acc-shortcuts__kbd { border: 1px solid CanvasText; background: Canvas; color: CanvasText; }
-  .acc-shortcuts__searchInput { border: 1px solid CanvasText; }
-}
-@media (prefers-reduced-motion: reduce) {
-  .acc-shortcuts__backdrop, .acc-shortcuts__dialog { transition: none !important; }
+/* List */
+.acc-shortcuts__list {
+  list-style: none;
+  margin: 0;
+  padding: 6px 0;
 }
 
+/* =================================
+   ROW LAYOUT — FLEX for easy centering
+   ================================= */
+.acc-shortcuts__item {
+  /* Use flex so vertical centering is bulletproof */
+  display: flex;
+  align-items: center;            /* vertical centering of both sides */
+  justify-content: space-between; /* text left, keys right */
+  gap: 12px;
+  padding: 10px 12px;
+  font-size: 14px;
+  min-block-size: 44px;           /* comfortable row height */
+}
+
+.acc-shortcuts__item + .acc-shortcuts__item {
+  border-top: 1px solid #f0f2f6;
+}
+
+/* Active (keyboard-nav) style */
 .acc-shortcuts__item--active {
   background: #f6f7fb;
   box-shadow: inset 0 0 0 2px #4c8bf5;
 }
 
-.acc-shortcuts__body { overscroll-behavior: contain; }
-.acc-shortcuts__item { scroll-margin-block: 8px; }
-/* Hidden, focusable sentinel to keep screen readers in focus mode */
+/* Left column (title + detail) */
+.acc-shortcuts__desc {
+  flex: 1 1 auto;                 /* takes leftover width */
+  min-width: 0;                   /* allows text wrapping */
+  display: flex;
+  flex-direction: column;
+  justify-content: center;        /* keep its own content vertically centered */
+  align-items: flex-start;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.acc-shortcuts__descTitle {
+  font-weight: 600;
+  margin: 0 0 2px 0;
+}
+
+.acc-shortcuts__descDetail {
+  color: #444;
+  margin: 0;
+  text-align: left;
+}
+
+/* Right column (key chips) */
+.acc-shortcuts__keys {
+  flex: 0 0 auto;                 /* do not stretch */
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;            /* center single line vertically */
+  align-content: center;          /* center multi-line wraps vertically */
+  justify-content: flex-end;      /* push chips to the right edge */
+  min-block-size: 28px;
+  margin-inline-start: 12px;
+}
+
+.acc-shortcuts__kbd {
+  display: inline-block;
+  min-width: 22px;
+  padding: 3px 9px;
+  border-radius: 7px;
+  background: #f8fafc;
+  border: 1px solid #cfd7e3;
+  color: #111827;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 13.5px;
+  line-height: 20px;
+  font-weight: 600;
+  letter-spacing: .2px;
+  white-space: nowrap;
+}
+
+/* Focus style when rows are focusable (if you ever set tabindex="0") */
+.acc-shortcuts__item[tabindex="0"]:focus {
+  background: #f6f7fb;
+  box-shadow: inset 0 0 0 2px #4c8bf5;
+  outline: none;
+}
+
+/* Screen-reader focus-mode sentinel */
 .acc-shortcuts__modeLock{
   position: absolute !important;
   width: 1px !important;
@@ -398,6 +414,55 @@ export class ShortcutAssistance {
   white-space: nowrap !important;
 }
 
+/* Ensure dialog/backdrop only interactive when open */
+.acc-shortcuts__dialog,
+.acc-shortcuts__backdrop { pointer-events: none; }
+.acc-shortcuts--open .acc-shortcuts__dialog { pointer-events: auto; }
+.acc-shortcuts--open .acc-shortcuts__backdrop { pointer-events: auto; }
+
+/* =================
+   Responsive tweaks
+   ================= */
+@media (max-width: 640px) {
+  /* Stack row vertically; still keep nice spacing */
+  .acc-shortcuts__item {
+    flex-direction: column;
+    align-items: flex-start;    /* left-align when stacked */
+    gap: 6px;
+  }
+  .acc-shortcuts__keys {
+    justify-content: flex-start; /* put chips under the text, left-aligned */
+    margin-inline-start: 0;
+  }
+}
+
+/* ==========================
+   Dark / Forced colors / R-M
+   ========================== */
+@media (prefers-color-scheme: dark) {
+  .acc-shortcuts__dialog { background: #1f2023; color: #f0f2f5; }
+  .acc-shortcuts__item + .acc-shortcuts__item { border-color: #2b2e33; }
+  .acc-shortcuts__item--active { background: #27292d; box-shadow: inset 0 0 0 2px #4c8bf5; }
+  .acc-shortcuts__kbd { background: #2a2c31; border-color: #4a4f59; color: #f6f7fb; }
+  .acc-shortcuts__header, .acc-shortcuts__footer { border-color: #2b2e33; }
+  .acc-shortcuts__intro, .acc-shortcuts__descDetail { color: #cfd3da; }
+  .acc-shortcuts__searchInput { background: #1f2023; color: #f0f2f5; border-color: #4a4f59; }
+}
+
+@media (forced-colors: active) {
+  .acc-shortcuts__item[tabindex="0"]:focus { outline: 2px solid Highlight; outline-offset: 0; box-shadow: none; }
+  .acc-shortcuts__kbd { border: 1px solid CanvasText; background: Canvas; color: CanvasText; }
+  .acc-shortcuts__searchInput { border: 1px solid CanvasText; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .acc-shortcuts__backdrop, .acc-shortcuts__dialog { transition: none !important; }
+}
+/* dialog/backdrop only interactive when open */
+.acc-shortcuts__dialog,
+.acc-shortcuts__backdrop { pointer-events: none; opacity: 0; }
+.acc-shortcuts--open .acc-shortcuts__dialog { pointer-events: auto; opacity: 1; }
+.acc-shortcuts--open .acc-shortcuts__backdrop { pointer-events: auto; opacity: 1; }
 `.trim();
         const style = document.createElement('style');
         style.id = 'acc-shortcuts-style';
@@ -601,7 +666,7 @@ export class ShortcutAssistance {
 
     // Guard against focus inside hidden modal
     _onFocusInGuard(e) {
-        if (!this.root) return;
+        if (!this.root || !this.isOpen) return;
         const isHidden = this.root.getAttribute('aria-hidden') === 'true';
         if (!isHidden) return;
         const fallback = document.querySelector('#blocklyDiv') || document.body;
