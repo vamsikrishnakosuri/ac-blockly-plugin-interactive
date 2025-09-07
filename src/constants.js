@@ -47,6 +47,7 @@ export const SHORTCUT_NAMES = {
   MOVE_STATEMENT_UP: "keyboard_move_stmt_up",
   MOVE_STATEMENT_DOWN: "keyboard_move_stmt_down",
   SHOW_SHORTCUTS: 'show_shortcuts',
+  SHOW_NAV_HINT: 'show_nav_hint',
 };
 
 /**
@@ -188,8 +189,18 @@ export const SHORTCUT_HELP_ROWS = [
     sr: 'Shortcut key any letter A through Z. Jump to a stack labeled with that letter.'
   },
   {
+    keys: ['ALT', 'K'],
+    title: 'Open or close this shortcuts list',
+    sr: 'Shortcut keys Alt plus K. Open or close this shortcut help.'
+  },
+  {
+    keys: ['ALT', 'I'],
+    title: 'Customize stack label',
+    sr: 'Shortcut keys Alt plus I. Open option to customize stack label'
+  },
+  {
     keys: ['ALT', 'H'],
-    title: 'Open or close this shortcut help',
+    title: 'Open or close navigational hint',
     sr: 'Shortcut keys Alt plus H. Open or close this shortcut help.'
   },
   {

@@ -22,6 +22,7 @@ import {initBlockNumbers, disposeBlockNumbers} from './labels_and_comments/block
 import { initStackLabels, disposeStackLabels, getStackLabelManager, getStackLabelFromStackNode} from './labels_and_comments/stack_labels.js';
 import { initStackSearch, disposeStackSearch, getStackSearchManager } from './labels_and_comments/stack_search.js';
 import {ShortcutAssistance} from "./util/shortcut_assistance";
+import {NavigationalHint} from "./util/navigational_hint";
 
 /**
  * Class for registering shortcuts for keyboard navigation.
@@ -57,6 +58,7 @@ export class NavigationController {
       this.speech = new Speech();
       this.accessibleCursor.setSpeechListener(this.speech);
       this.shortcutAssistance = new ShortcutAssistance(this.speech);
+      this.navHint = new NavigationalHint({ speech: this.speech });
     }
     this.keyHintListener = null;
   }
@@ -76,141 +78,8 @@ export class NavigationController {
     }
   }
 
-  // predictive keyboard hint
-  _getInputForConnection(conn) {
-    if (!conn?.getSourceBlock) return null;
-    const blk = conn.getSourceBlock();
-    if (!blk?.inputList) return null;
-    for (let i = 0; i < blk.inputList.length; i++) {
-      if (blk.inputList[i].connection === conn) return blk.inputList[i];
-    }
-    return null;
-  }
-
-  _connLabel(conn) {
-    if (!conn) return 'connection';
-    const type = conn.type;
-    if (type === Blockly.ConnectionType.INPUT_VALUE) {
-      const input = this._getInputForConnection(conn);
-      return input?.name ? `value input ${input.name}` : 'value connection';
-    }
-    if (type === Blockly.ConnectionType.NEXT_STATEMENT) return 'next connection';
-    if (type === Blockly.ConnectionType.PREVIOUS_STATEMENT) return 'previous connection';
-    if (type === Blockly.ConnectionType.OUTPUT_VALUE) return 'output connection';
-    return 'connection';
-  }
-
-  /**
-   * Build a short, user-facing description for a predicted node given a key.
-   * @param {'W'|'A'|'S'|'D'|'F'|'Q'} key
-   * @param {?Blockly.ASTNode} node
-   * @param {?Blockly.ASTNode} from
-   */
-  _describePrediction(key, node, from) {
-    if (!key) {
-      return {}
-    }
-    if (!node) {
-      return {
-        key: key.toUpperCase(), node: null, type: null
-      };
-    }
-
-    const nodeType = node.getType?.();
-    const isInputLike = (
-        nodeType === Blockly.ASTNode.types.INPUT ||
-        nodeType === Blockly.ASTNode.types.NEXT ||
-        nodeType === Blockly.ASTNode.types.PREVIOUS ||
-        nodeType === Blockly.ASTNode.types.OUTPUT
-    );
-
-    if (nodeType === Blockly.ASTNode.types.STACK) {
-      const top = node.getLocation?.();
-      const name = getStackLabelFromStackNode(node, workspace) || this.speech?.friendlyName?.(top) || '';
-      return {
-        key: key, node: `${name}`, type: 'stack'
-      };
-    }
-
-    if (nodeType === Blockly.ASTNode.types.BLOCK) {
-      const blk = node.getLocation?.() || node.getSourceBlock?.();
-      const name = this.speech?.friendlyName?.(blk) || 'block';
-      return {
-        key: key, node: `${name}`, type: 'block'
-      };
-    }
-
-    if (isInputLike) {
-      const conn = node.getLocation?.();
-      const label = this._connLabel(conn);
-      const target = conn?.targetBlock?.();
-      if (target) {
-        const name = this.speech?.friendlyName?.(target) || 'block';
-        return {
-          key: key, node: `${name}`, type: 'connection'
-        };
-      }
-      return {
-        key: key, node: `Focus ${label}`, type: 'connection'
-      };
-    }
-
-    if (nodeType === Blockly.ASTNode.types.WORKSPACE) {
-      return {
-        key: key, node: 'workspace', type: 'workspace'
-      };
-    }
-
-    return {
-      key: key, node: 'unknown', type: null
-    };
-  }
-
-
-  /** Compute context-aware hints based on cursor state. */
-  computeKeyHints(workspace) {
-    const cursor = workspace?.getCursor?.();
-    const edit   = !!cursor?.editMode;
-    const node   = cursor?.getCurNode?.();
-    const onConn = !!node?.isConnection?.();
-    const conn   = onConn ? node?.getLocation?.() : null;
-    const canDisconnect = !!(edit && conn?.isConnected?.() && conn.targetConnection);
-
-    // invoke AccessibleCursor navigable block prediction
-    const predictNavigation = (k) => (cursor?.predictNavigableBlock ? cursor.predictNavigableBlock(k) : null);
-
-    const pW = predictNavigation('W'); // prev
-    const pA = predictNavigation('A'); // out
-    const pS = predictNavigation('S'); // next
-    const pD = predictNavigation('D'); // in
-    const pF = predictNavigation('F'); // layer in (nested)
-    const pQ = predictNavigation('Q'); // layer out
-
-    /** @type {{key:string, desc:string}[]} */
-    const hints = [
-      this._describePrediction('W', pW, node),
-      this._describePrediction('A', pA, node),
-      this._describePrediction('S', pS, node),
-      this._describePrediction('D', pD, node),
-      this._describePrediction('F', pF, node),
-      this._describePrediction('Q', pQ, node),
-      { key: 'E', node: edit, type: 'Edit'},
-    ];
-
-    if (canDisconnect) {
-      // add disconnect hint
-      const idx = 4;
-      hints.splice(idx, 0, {
-        key: 'Alt+X', node: 'Disconnect block from this connection (Edit mode)', type: null
-      });
-    }
-
-    return hints;
-  }
-
-
   emitKeyHints(workspace) {
-    const hints = this.computeKeyHints(workspace);
+    const hints = this.navHint.compute(workspace);
     if (this.keyHintListener) {
       try {
         this.keyHintListener(hints);
@@ -218,6 +87,7 @@ export class NavigationController {
         console.error('keyHint listener error:', e);
       }
     }
+    try { this.navHint?.setHints(hints); } catch {}
   }
 
   patchCursor(workspace) {
@@ -357,25 +227,11 @@ export class NavigationController {
     // Initialize stack search for this workspace
     initStackSearch(workspace);
 
-    this.shortcutAssistance.init();
+    this.shortcutAssistance?.init();
+    this.navHint?.init();
+
     this.patchCursor(workspace);
     this.emitKeyHints(workspace);
-  }
-
-  /**
-   * Removes all necessary event listeners and markers to a workspace for
-   * keyboard navigation to work.
-   * @param {!Blockly.WorkspaceSvg} workspace The workspace to remove keyboard
-   *     navigation from.
-   * @public
-   */
-  removeWorkspace(workspace) {
-    this.navigation.removeWorkspace(workspace);
-
-    // Clean up block numbers, stack labels, and stack search
-    disposeBlockNumbers();
-    disposeStackLabels();
-    disposeStackSearch(workspace);
   }
 
   /**
@@ -2063,7 +1919,7 @@ export class NavigationController {
 
 
   /**
-   * Alt+H — Show the shortcut assistance modal.
+   * Alt+K — Show the shortcut assistance modal.
    */
   registerShowShortcuts() {
     this.showShortcuts = () => {
@@ -2084,10 +1940,33 @@ export class NavigationController {
 
     Blockly.ShortcutRegistry.registry.register(shortcut);
     const altH = Blockly.ShortcutRegistry.registry.createSerializedKey(
-        Blockly.utils.KeyCodes.H,
+        Blockly.utils.KeyCodes.K,
         [Blockly.utils.KeyCodes.ALT],
     );
     Blockly.ShortcutRegistry.registry.addKeyMapping(altH, shortcut.name, true);
+  }
+
+  /**
+   * Alt+H — Show the navigational hint module
+   * ESC - close navigational hint module
+   */
+  registerShowNavigationalHint() {
+    const navHintShortcut = {
+      name: Constants.SHORTCUT_NAMES.SHOW_NAV_HINT,
+      // not available during gesture drags.
+      preconditionFn: (workspace) => !Blockly.Gesture.inProgress(),
+      callback: (workspace) => {
+        this.navHint.toggle();
+        return true;
+      },
+    };
+
+    Blockly.ShortcutRegistry.registry.register(navHintShortcut);
+    const altH = Blockly.ShortcutRegistry.registry.createSerializedKey(
+        Blockly.utils.KeyCodes.H,
+        [Blockly.utils.KeyCodes.ALT],
+    );
+    Blockly.ShortcutRegistry.registry.addKeyMapping(altH, navHintShortcut.name, true);
   }
 
 
@@ -2202,6 +2081,7 @@ export class NavigationController {
 
     this.registerReorderStatementShortcuts();
     this.registerShowShortcuts();
+    this.registerShowNavigationalHint();
   }
 
   /**
