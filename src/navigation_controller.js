@@ -1440,7 +1440,7 @@ export class NavigationController {
             targetBlock.unplug(false);
             try {
               const xy = targetBlock.getRelativeToSurfaceXY?.();
-              if (xy) targetBlock.moveTo(new Blockly.utils.Coordinate(xy.x + 250, xy.y + 50));
+              if (xy) targetBlock.moveTo(new Blockly.utils.Coordinate(xy.x + 300, xy.y));
             } catch {
             }
           }
