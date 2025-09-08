@@ -1367,7 +1367,7 @@ export class NavigationController {
 
   /**
    * Keyboard shortcut to copy and delete the block the cursor is on using
-   * ctrl+x, cmd+x, or alt+x.
+   * ctrl+x, cmd+x
    * @protected
    */
   registerCut() {
@@ -1563,6 +1563,9 @@ export class NavigationController {
         }
         this.navigation.moveCursorOnBlockDelete(workspace, sourceBlock);
         sourceBlock.checkAndDelete();
+        let blockLabel = this.speech.friendlyName(sourceBlock) || 'block';
+        this.speech.update("Deleted " + blockLabel);
+
         return true;
       },
     };
@@ -1696,9 +1699,9 @@ export class NavigationController {
                   if (wasBubbleOpen) {
                     try {
                       workspace.markFocused?.();
-                      workspace.getParentSvg?.()?.focus?.();
-                      announceWithText(!wasBubbleOpen);
+                      // workspace.getParentSvg?.()?.focus?.();
                     } catch {}
+                    setTimeout(() => announceWithText(false), 500);
                   }
                 }
               },
@@ -1708,18 +1711,26 @@ export class NavigationController {
 
         const focusTextareaNextFrame = () => {
           requestAnimationFrame(() => {
-            requestAnimationFrame(() => {
-              try { queryTextarea()?.focus?.(); } catch {}
+            const ta = queryTextarea();
+            if (ta) {
+              // make SR prefer your live region (#blockReader) after focus
+              ta.setAttribute('aria-describedby', 'blockReader');
+              try {
+                ta.focus({preventScroll: true});
+              } catch {
+              }
               bindTextareaKeys();
-            });
+            }
+            announceWithText(true);
           });
         };
 
         const togglePromise = commentIcon.setBubbleVisible(openBubble);
         if (openBubble) {
           togglePromise?.then ? togglePromise.then(focusTextareaNextFrame) : focusTextareaNextFrame();
+        } else {
+          announceWithText(openBubble);
         }
-        announceWithText(openBubble);
         return true;
       },
     };
