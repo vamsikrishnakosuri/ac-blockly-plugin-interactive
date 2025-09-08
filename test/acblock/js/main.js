@@ -23,7 +23,7 @@ const KEY_HINTS = [
 
 function populateProgramsToDom() {
     const select = document.getElementById('programSelect');
-    select.innerHTML = '<option value="">None — select a program…</option>';
+    select.innerHTML = '<option value="Default">None — select a program…</option>';
     PROGRAMS.forEach(p => {
         const opt = document.createElement('option');
         opt.value = p.id;
@@ -275,7 +275,10 @@ async function loadSelectedProgramIntoWorkspace(workspace) {
 
 async function autoLoadProgramFromQuery(workspace) {
     const programId = getProgramIdFromQuery();
-    if (!programId) return;
+    if (!programId) {
+        await renderInstructionsForSelection();
+        return;
+    }
 
     const match = findProgramById(programId);
     if (!match) {
@@ -321,10 +324,10 @@ function initWorkspace() {
     let nav = new NavigationController();
     nav.init();
     nav.addWorkspace(workspace);
-    nav.addKeyHintListener((hints) => {
-        // expects: [{key: 'W', node: 'if-do', type: 'block'}, ...]
-        renderKeyboardHints(hints);
-    });
+    // nav.addKeyHintListener((hints) => {
+    //     // expects: [{key: 'W', node: 'if-do', type: 'block'}, ...]
+    //     renderKeyboardHints(hints);
+    // });
 
     const keyOverlay = new KeyOverlay({ hideDelayMs: 5000 });
     keyOverlay.attach();
@@ -347,43 +350,7 @@ function initWorkspace() {
 
     // auto select & load program if query param is provided
     autoLoadProgramFromQuery(workspace);
-    renderKeyboardHints(null);
-}
-
-
-// document.addEventListener('DOMContentLoaded', () => {
-//   const select = document.getElementById('programSelect');
-//   const btn = document.getElementById('loadXmlButton');
-//
-//   PROGRAMS.forEach(p => {
-//     const opt = document.createElement('option');
-//     opt.value = p.id;
-//     opt.textContent = p.label;
-//     select.appendChild(opt);
-//   });
-//
-//   btn.addEventListener('click', loadProgramXmlToTextArea);
-// });
-
-async function loadProgramXmlToTextArea() {
-  const select = document.getElementById('programSelect');
-  const textArea = document.getElementById('xmlTextArea');
-  if (!select.value) {
-    alert('Pick a program first.');
-    return;
-  }
-
-  const entry = PROGRAMS.find(p => p.id === select.value);
-  if (!entry) return;
-
-  try {
-    const res = await fetch(entry.file, { cache: 'no-store' });
-    if (!res.ok) throw new Error(res.statusText);
-    textArea.value = await res.text();
-  } catch (e) {
-    console.error(e);
-    alert('Could not load XML file.');
-  }
+    // renderKeyboardHints(null);
 }
 
 function generateCode() {
