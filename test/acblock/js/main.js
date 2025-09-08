@@ -326,6 +326,9 @@ function initWorkspace() {
         renderKeyboardHints(hints);
     });
 
+    const keyOverlay = new KeyOverlay({ hideDelayMs: 5000 });
+    keyOverlay.attach();
+
     document.getElementById("runButton").addEventListener("click", () => {
         generateCode(Blockly.getMainWorkspace());
         try {
