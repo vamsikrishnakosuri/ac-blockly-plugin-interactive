@@ -383,3 +383,106 @@ pre.prettyprint {
 }
 
 pre code { white-space: pre; }
+
+
+/* Key Overlay (bottom-left) */
+.key-overlay {
+    position: fixed;
+    left: 100px;
+    bottom: 30px;
+    z-index: 9999;
+    display: none;
+    opacity: 0;
+    transform: translateY(10px);
+    transition: opacity 220ms ease, transform 220ms ease;
+    pointer-events: none;
+}
+
+.key-overlay.is-visible {
+    display: block;
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.key-overlay__bubble {
+    background: rgba(34, 37, 42, 0.92);
+    color: #fdfdfd;
+    padding: 12px 12px;
+    border-radius: 20px;
+    box-shadow: 0 12px 30px rgba(0,0,0,0.35);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    max-width: 60vw;
+    font-size: 20px;
+    font-weight: 700;
+    line-height: 1.6;
+}
+
+.key-overlay__list {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+    line-height: 1.4;
+}
+
+/* Visual key token */
+.key-overlay__kbd {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+    font-size: 1.25em;
+    font-weight: 700;
+    padding: 12px 20px;
+    border-radius: 12px;
+    background: linear-gradient(145deg, rgba(0, 123, 255, 0.35), rgba(0, 92, 200, 0.35));
+    color: #fff;
+    border: 1px solid rgba(255,255,255,0.3);
+    white-space: nowrap;
+    box-shadow:
+            0 0 8px rgba(0, 140, 255, 0.35),
+            inset 0 1px 2px rgba(255,255,255,0.15);
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.key-overlay__kbd:hover {
+    transform: scale(1.08);
+    box-shadow:
+            0 0 12px rgba(0, 160, 255, 0.5),
+            inset 0 1px 3px rgba(255,255,255,0.2);
+}
+
+
+.key-overlay__plus {
+    font-size: 1.5em;
+    font-weight: 700;
+    opacity: 0.85;
+    user-select: none;
+    color: #e0e0e0;
+}
+
+
+@media (prefers-reduced-motion: reduce) {
+    .key-overlay {
+        transition: none;
+    }
+}
+
+
+@media (prefers-color-scheme: light) {
+    .key-overlay__bubble {
+        background: rgba(250, 251, 253, 0.96);
+        color: #222;
+        border: 1px solid rgba(0, 0, 0, 0.15);
+    }
+
+    .key-overlay__kbd {
+        background: linear-gradient(145deg, rgba(0, 132, 255, 0.3), rgba(0, 102, 220, 0.3));
+        color: #222;
+        border: 1px solid rgba(0,0,0,0.2);
+        box-shadow: 0 0 8px rgba(0, 150, 255, 0.35);
+    }
+
+    .key-overlay__plus {
+        color: #333;
+    }
+}
