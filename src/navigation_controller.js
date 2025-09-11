@@ -225,7 +225,7 @@ export class NavigationController {
     // Initialize stack labels for this workspace
     initStackLabels(workspace);
     // Initialize stack search for this workspace
-    initStackSearch(workspace);
+    initStackSearch(workspace, this.speech);
 
     this.shortcutAssistance?.init();
     this.navHint?.init();
@@ -884,12 +884,12 @@ export class NavigationController {
     };
 
     Blockly.ShortcutRegistry.registry.register(disconnectShortcut);
-    const altX = Blockly.ShortcutRegistry.registry.createSerializedKey(
+    const shiftX = Blockly.ShortcutRegistry.registry.createSerializedKey(
         Blockly.utils.KeyCodes.X,
-        [Blockly.utils.KeyCodes.ALT],
+        [Blockly.utils.KeyCodes.SHIFT],
     );
     Blockly.ShortcutRegistry.registry.addKeyMapping(
-        altX,
+        shiftX,
         disconnectShortcut.name,
         true,
     );
@@ -1598,12 +1598,8 @@ export class NavigationController {
     };
 
     Blockly.ShortcutRegistry.registry.register(cursorLocShortcut);
-    const altC = Blockly.ShortcutRegistry.registry.createSerializedKey(
-        Blockly.utils.KeyCodes.C,
-        [Blockly.utils.KeyCodes.ALT],
-    );
     Blockly.ShortcutRegistry.registry.addKeyMapping(
-        altC,
+        Blockly.utils.KeyCodes.C,
         cursorLocShortcut.name,
         true,
     );
@@ -1800,11 +1796,11 @@ export class NavigationController {
     Blockly.ShortcutRegistry.registry.register(moveUpShortcut);
     Blockly.ShortcutRegistry.registry.register(moveDownShortcut);
 
-    const altW = Blockly.ShortcutRegistry.registry.createSerializedKey(Blockly.utils.KeyCodes.W, [Blockly.utils.KeyCodes.ALT]);
-    const altS = Blockly.ShortcutRegistry.registry.createSerializedKey(Blockly.utils.KeyCodes.S, [Blockly.utils.KeyCodes.ALT]);
+    const ctrlW = Blockly.ShortcutRegistry.registry.createSerializedKey(Blockly.utils.KeyCodes.W, [Blockly.utils.KeyCodes.CTRL]);
+    const ctrlS = Blockly.ShortcutRegistry.registry.createSerializedKey(Blockly.utils.KeyCodes.S, [Blockly.utils.KeyCodes.CTRL]);
 
-    Blockly.ShortcutRegistry.registry.addKeyMapping(altW, moveUpShortcut.name, true);
-    Blockly.ShortcutRegistry.registry.addKeyMapping(altS, moveDownShortcut.name, true);
+    Blockly.ShortcutRegistry.registry.addKeyMapping(ctrlW, moveUpShortcut.name, true);
+    Blockly.ShortcutRegistry.registry.addKeyMapping(ctrlS, moveDownShortcut.name, true);
   }
 
 
@@ -1950,11 +1946,11 @@ export class NavigationController {
     };
 
     Blockly.ShortcutRegistry.registry.register(shortcut);
-    const altH = Blockly.ShortcutRegistry.registry.createSerializedKey(
+    const shiftK = Blockly.ShortcutRegistry.registry.createSerializedKey(
         Blockly.utils.KeyCodes.K,
-        [Blockly.utils.KeyCodes.ALT],
+        [Blockly.utils.KeyCodes.SHIFT],
     );
-    Blockly.ShortcutRegistry.registry.addKeyMapping(altH, shortcut.name, true);
+    Blockly.ShortcutRegistry.registry.addKeyMapping(shiftK, shortcut.name, true);
   }
 
   /**
@@ -1973,11 +1969,11 @@ export class NavigationController {
     };
 
     Blockly.ShortcutRegistry.registry.register(navHintShortcut);
-    const altH = Blockly.ShortcutRegistry.registry.createSerializedKey(
+    const shiftH = Blockly.ShortcutRegistry.registry.createSerializedKey(
         Blockly.utils.KeyCodes.H,
-        [Blockly.utils.KeyCodes.ALT],
+        [Blockly.utils.KeyCodes.SHIFT],
     );
-    Blockly.ShortcutRegistry.registry.addKeyMapping(altH, navHintShortcut.name, true);
+    Blockly.ShortcutRegistry.registry.addKeyMapping(shiftH, navHintShortcut.name, true);
   }
 
 
@@ -2093,6 +2089,7 @@ export class NavigationController {
     this.registerReorderStatementShortcuts();
     this.registerShowShortcuts();
     this.registerShowNavigationalHint();
+    this.registerStackJumpShortcuts();
   }
 
   /**
@@ -2158,18 +2155,71 @@ export class NavigationController {
 
     Blockly.ShortcutRegistry.registry.register(stackLabelEditShortcut);
 
-    const altI = Blockly.ShortcutRegistry.registry.createSerializedKey(
+    const shiftI = Blockly.ShortcutRegistry.registry.createSerializedKey(
         Blockly.utils.KeyCodes.I,
-        [Blockly.utils.KeyCodes.ALT]
+        [Blockly.utils.KeyCodes.SHIFT]
     );
 
     Blockly.ShortcutRegistry.registry.addKeyMapping(
-        altI,
+        shiftI,
         stackLabelEditShortcut.name,
     );
   }
 
   /**
+   * Keyboard shortcut ALT + [A-Z] to jump to stack by its label
+   * @protected
+   */
+  registerStackJumpShortcuts() {
+    const SHORTCUT_NAME_PREFIX = Constants.SHORTCUT_NAMES.STACK_JUMP_PREFIX || 'STACK_JUMP_';
+    for (let code = Blockly.utils.KeyCodes.A; code <= Blockly.utils.KeyCodes.Z; code++) {
+      const letter = String.fromCharCode(code); // "A".."Z"
+      /** @type {!Blockly.ShortcutRegistry.KeyboardShortcut} */
+      const stackJumpShortcut = {
+        name: `${SHORTCUT_NAME_PREFIX}_${letter}`,
+        preconditionFn: (workspace) => {
+          return workspace.keyboardAccessibilityMode;
+        },
+        callback: (workspace) => {
+          const manager = getStackSearchManager(workspace);
+          if (!manager) {
+            console.log('No stack search manager found for workspace');
+            return false;
+          }
+
+          const record = manager.findStackByLetter(workspace, letter);
+          if (!record) {
+            this.speech.update(`No stack found with letter ${String(letter).toUpperCase()}`);
+            return false;
+          }
+
+          const cursor = workspace.getCursor?.();
+          if (!cursor) {
+            return false;
+          }
+
+
+          try {
+            const astNode = Blockly.ASTNode.createStackNode(record.block);
+            cursor.setCurNode(astNode);
+            this.speech.update(`Navigated to stack ${record.label}`);
+            return true;
+          } catch (e) {
+            this.speech.update(`Error navigating to stack ${String(letter).toUpperCase()}`);
+            return false;
+          }
+        },
+      };
+
+      Blockly.ShortcutRegistry.registry.register(stackJumpShortcut);
+      // ALT + Letter
+      const altLetter = Blockly.ShortcutRegistry.registry.createSerializedKey(
+          code, [Blockly.utils.KeyCodes.ALT]);
+      Blockly.ShortcutRegistry.registry.addKeyMapping(altLetter, stackJumpShortcut.name, true);
+    }
+  }
+
+/**
    * Removes all the keyboard navigation shortcuts.
    * @public
    */
