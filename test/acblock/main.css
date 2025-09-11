@@ -35,14 +35,20 @@ select, option, select:focus, option:hover {
     align-items: center;
     gap: 10px;
 }
-.navbar .logo img { height: 40px; }
+
+.navbar .logo img {
+    height: 40px;
+}
+
 .navbar .logo h1 {
     font-size: 1em;
     font-weight: 600;
 }
 
 /* Columns */
-.editor-panel { flex: 3; }
+.editor-panel {
+    flex: 3;
+}
 
 .execution-panel {
     flex: 1;
@@ -78,22 +84,35 @@ select, option, select:focus, option:hover {
     font-weight: 450;
     font-size: 1em;
 }
+
 .run-button:hover {
     background: #e8f0fe;
     border: 1px solid #d2e3fc;
-    box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
 }
 
 /* Give specific buttons sensible minimums */
-#loadXmlButton { min-width: 145px; }
-#showShortcuts { min-width: 145px; min-height: 30px; margin-bottom: 4px; }
+#loadXmlButton {
+    min-width: 145px;
+}
+
+#showShortcuts {
+    min-width: 140px;
+    min-height: 30px;
+}
 
 /* A11y helpers */
 .visually-hidden,
 .sr-only {
     position: absolute !important;
-    width: 1px; height: 1px; padding: 0; margin: -1px;
-    overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+    border: 0;
 }
 
 /* Header row (Run + Program controls) */
@@ -126,10 +145,12 @@ select, option, select:focus, option:hover {
         gap: 10px;
         min-width: 0;
     }
+
     .program-controls .program-dropdown {
         flex: 0 1 auto;
         min-width: 220px;
     }
+
     .program-controls .run-button {
         margin-left: auto;
         flex: 0 0 auto;
@@ -138,7 +159,10 @@ select, option, select:focus, option:hover {
 }
 
 @media (max-width: 420px) {
-    .exec-header .program-controls { flex-wrap: wrap; }
+    .exec-header .program-controls {
+        flex-wrap: wrap;
+    }
+
     .program-controls .program-dropdown,
     .program-controls .run-button {
         flex: 1 0 100%;
@@ -170,11 +194,13 @@ select, option, select:focus, option:hover {
     padding: 8px 10px;
     background: #fafafa;
 }
+
 .code-header h3 {
     margin: 0;
     font-size: 0.95rem;
     font-weight: 600;
 }
+
 .program-dropdown--sm {
     font-size: 0.9rem;
     padding: 3px 6px;
@@ -190,6 +216,7 @@ select, option, select:focus, option:hover {
     font-family: 'IBM Plex Mono';
     padding: 10px;
 }
+
 pre.prettyprint {
     padding: 5px 10px !important;
 }
@@ -203,8 +230,7 @@ pre.prettyprint {
     padding: 10px 12px;
 
     /* sizing & layout */
-    --instruction-max-height: 30%;
-    flex: 0 1 auto;
+    flex: 0 1 50%;
     max-height: var(--instruction-max-height);
     overflow: hidden;
 
@@ -212,7 +238,9 @@ pre.prettyprint {
     flex-direction: column;
 }
 
-.instruction[hidden] { display: none !important; }
+.instruction[hidden] {
+    display: none !important;
+}
 
 /* Sticky header */
 #instructionHeader {
@@ -324,12 +352,18 @@ pre.prettyprint {
 
 /* Responsive tweaks */
 @media (max-width: 520px) {
-    .instruction-header-row { gap: 6px; }
+    .instruction-header-row {
+        gap: 6px;
+    }
+
     .instruction-nav {
         inline-size: 1.8rem;
         block-size: 1.8rem;
     }
-    .instruction-pager { font-size: 0.85rem; }
+
+    .instruction-pager {
+        font-size: 0.85rem;
+    }
 }
 
 
@@ -339,8 +373,8 @@ pre.prettyprint {
     border: 1px solid #e3e3e3;
     background: #fff;
     padding: 10px 12px;
-    flex: 1 1 0;      /* fill leftover height */
-    min-height: 0;    /* allow internal scroll */
+    flex: 1 1 0; /* fill leftover height */
+    min-height: 0; /* allow internal scroll */
     overflow-y: auto;
 }
 
@@ -368,7 +402,10 @@ pre.prettyprint {
     margin: 0;
 }
 
-.kbd-list dt { font-weight: 600; }
+.kbd-list dt {
+    font-weight: 600;
+}
+
 .kbd-list dt kbd {
     border: 1px solid #cfcfcf;
     padding: 1px 6px;
@@ -382,14 +419,15 @@ pre.prettyprint {
     margin-inline-start: 0;
 }
 
-pre code { white-space: pre; }
-
+pre code {
+    white-space: pre;
+}
 
 /* Key Overlay (bottom-left) */
 .key-overlay {
     position: fixed;
-    left: 100px;
-    bottom: 30px;
+    left: 120px;
+    bottom: 60px;
     z-index: 9999;
     display: none;
     opacity: 0;

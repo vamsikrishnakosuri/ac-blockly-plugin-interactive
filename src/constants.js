@@ -48,6 +48,7 @@ export const SHORTCUT_NAMES = {
   MOVE_STATEMENT_DOWN: "keyboard_move_stmt_down",
   SHOW_SHORTCUTS: 'show_shortcuts',
   SHOW_NAV_HINT: 'show_nav_hint',
+  STACK_JUMP_PREFIX: 'stack_jump_'
 };
 
 /**
@@ -119,32 +120,32 @@ export const SHORTCUT_HELP_ROWS = [
     sr: 'Shortcut key Escape. Close the toolbox and return focus to the workspace.'
   },
   {
-    keys: ['ALT', 'C'],
+    keys: ['C'],
     title: 'Announce current cursor location',
-    sr: 'Shortcut keys Alt plus C. Announce the current cursor location.'
+    sr: 'Shortcut key C. Announce the current cursor location.'
   },
   {
-    keys: ['ALT', 'X'],
+    keys: ['Shift', 'X'],
     title: 'Disconnect block from current cursor location (Edit Mode Only)',
-    sr: 'Shortcut keys Alt plus X. Disconnect the block from the current cursor location. Edit mode only.'
+    sr: 'Shortcut keys Shift plus X. Disconnect the block from the current cursor location. Edit mode only.'
   },
   {
-    keys: ['ALT', 'W'],
+    keys: ['CTRL', 'W'],
     title: 'Move the selected statement block upward (Navigation Mode Only)',
-    sr: 'Shortcut keys Alt plus W. Move the selected statement block upward. Navigation mode only.'
+    sr: 'Shortcut keys Ctrl plus W. Move the selected statement block upward. Navigation mode only.'
   },
   {
-    keys: ['ALT', 'S'],
+    keys: ['CTRL', 'S'],
     title: 'Move the selected statement block downward (Navigation Mode Only)',
-    sr: 'Shortcut keys Alt plus S. Move the selected statement block downward. Navigation mode only.'
+    sr: 'Shortcut keys Ctrl plus S. Move the selected statement block downward. Navigation mode only.'
   },
   {
-    keys: ['MOD', 'X'],
+    keys: ['CTRL', 'X'],
     title: 'Cut (detach) the selected block (Navigation Mode Only)',
     sr: 'Shortcut keys Command (Mac) or Control (Windows) plus X. Cut the selected block. Navigation mode only.'
   },
   {
-    keys: ['MOD', 'V'],
+    keys: ['CTRL', 'V'],
     title: 'Paste (attach) detached block to a connection (Edit Mode Only)',
     sr: 'Shortcut keys Command (Mac) or Control (Windows) plus V. Paste the detached block to a connection. Edit mode only.'
   },
@@ -154,7 +155,7 @@ export const SHORTCUT_HELP_ROWS = [
     sr: 'Shortcut key Delete. Delete the selected block.'
   },
   {
-    keys: ['MOD', '/'],
+    keys: ['CTRL', '/'],
     title: 'Add or hide a comment on the selected block',
     sr: 'Shortcut keys Command (Mac) or Control (Windows) plus Slash. Add or hide a comment on the selected block.'
   },
@@ -184,24 +185,24 @@ export const SHORTCUT_HELP_ROWS = [
     sr: 'Shortcut keys Alt plus Shift plus G. Search stacks.'
   },
   {
-    keys: 'A–Z',
+    keys: ['ALT', 'A–Z'],
     title: 'Jump to a stack labelled with that letter',
-    sr: 'Shortcut key any letter A through Z. Jump to a stack labeled with that letter.'
+    sr: 'Shortcut keys ALT plus any letter A through Z. Jump to a stack labeled with that letter.'
   },
   {
-    keys: ['ALT', 'K'],
+    keys: ['Shift', 'K'],
     title: 'Open or close this shortcuts list',
-    sr: 'Shortcut keys Alt plus K. Open or close this shortcut help.'
+    sr: 'Shortcut keys Shift plus K. Open or close this shortcut help.'
   },
   {
-    keys: ['ALT', 'I'],
+    keys: ['Shift', 'I'],
     title: 'Customize stack label',
-    sr: 'Shortcut keys Alt plus I. Open option to customize stack label'
+    sr: 'Shortcut keys Shift plus I. Open option to customize stack label'
   },
   {
-    keys: ['ALT', 'H'],
-    title: 'Open or close navigational hint',
-    sr: 'Shortcut keys Alt plus H. Open or close this shortcut help.'
+    keys: ['Shift', 'H'],
+    title: 'Open or close navigational Assistant',
+    sr: 'Shortcut keys Shift plus H. Open or close this shortcut help.'
   },
   {
     keys: ['MOD', 'Shift', 'K'],
