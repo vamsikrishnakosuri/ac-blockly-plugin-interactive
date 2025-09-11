@@ -122,7 +122,7 @@ export const SHORTCUT_HELP_ROWS = [
   {
     keys: ['C'],
     title: 'Announce current cursor location',
-    sr: 'Shortcut keys Alt plus C. Announce the current cursor location.'
+    sr: 'Shortcut key C. Announce the current cursor location.'
   },
   {
     keys: ['Shift', 'X'],
@@ -132,12 +132,12 @@ export const SHORTCUT_HELP_ROWS = [
   {
     keys: ['CTRL', 'W'],
     title: 'Move the selected statement block upward (Navigation Mode Only)',
-    sr: 'Shortcut keys Alt plus W. Move the selected statement block upward. Navigation mode only.'
+    sr: 'Shortcut keys Ctrl plus W. Move the selected statement block upward. Navigation mode only.'
   },
   {
     keys: ['CTRL', 'S'],
     title: 'Move the selected statement block downward (Navigation Mode Only)',
-    sr: 'Shortcut keys Alt plus S. Move the selected statement block downward. Navigation mode only.'
+    sr: 'Shortcut keys Ctrl plus S. Move the selected statement block downward. Navigation mode only.'
   },
   {
     keys: ['CTRL', 'X'],
@@ -201,7 +201,7 @@ export const SHORTCUT_HELP_ROWS = [
   },
   {
     keys: ['Shift', 'H'],
-    title: 'Open or close navigational hint',
+    title: 'Open or close navigational Assistant',
     sr: 'Shortcut keys Shift plus H. Open or close this shortcut help.'
   },
   {
