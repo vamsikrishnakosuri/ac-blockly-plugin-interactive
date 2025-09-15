@@ -63,6 +63,15 @@
                 </value>
               </block>
             </value>
+            <statement name="DO">
+              <block type="text_print" id="H7[{7zhzsV#5].t^OJw|">
+                <value name="TEXT">
+                  <shadow type="text" id="Bu;1b?QdBgu7B_d}{rj(">
+                    <field name="TEXT">Jack waters the plants!</field>
+                  </shadow>
+                </value>
+              </block>
+            </statement>
           </block>
         </next>
       </block>
