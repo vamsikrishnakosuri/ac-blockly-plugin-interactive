@@ -71,6 +71,34 @@ export class StackSearchManager {
     this.searchActive_ = false;
 
     /**
+     * Current search query text.
+     * @type {string}
+     * @private
+     */
+    this.searchQuery_ = '';
+
+    /**
+     * Current active panel: 'stacks' or 'blocks'
+     * @type {string}
+     * @private
+     */
+    this.activePanel_ = 'stacks';
+
+    /**
+     * Current selection index in blocks panel.
+     * @type {number}
+     * @private
+     */
+    this.blockSelectionIndex_ = 0;
+
+    /**
+     * Available blocks for currently selected stack.
+     * @type {!Array<{number: number, blockId: string, description: string}>}
+     * @private
+     */
+    this.availableBlocks_ = [];
+
+    /**
      * Bound event handlers for cleanup.
      * @type {!Array<function()>}
      * @private
@@ -170,8 +198,8 @@ export class StackSearchManager {
           // Get the block to ensure it still exists
           const block = this.workspace_.getBlockById(blockId);
           if (block) {
-            // Get custom label if available
-            const customText = stackLabelManager.customLabels_?.get(blockId) || '';
+            // Get custom label if available (stored in stackLabelTexts_)
+            const customText = stackLabelManager.stackLabelTexts_?.get(blockId) || '';
             const fullLabel = customText ? `${letter} ${customText}` : letter;
 
             stacks.push({
@@ -220,6 +248,14 @@ export class StackSearchManager {
     // Remove any existing overlay
     this.removeSearchOverlay_();
 
+    // Store available stacks and initialize selection
+    this.allAvailableStacks_ = availableStacks;
+    this.availableStacks_ = availableStacks;
+    this.currentSelectionIndex_ = 0;
+    this.blockSelectionIndex_ = 0;
+    this.activePanel_ = 'stacks';
+    this.searchQuery_ = '';
+
     // Create overlay element
     const overlay = document.createElement('div');
     overlay.className = 'blockly-stack-search-overlay';
@@ -237,35 +273,103 @@ export class StackSearchManager {
 
     const instructions = document.createElement('div');
     instructions.className = 'blockly-stack-search-instructions';
-    instructions.textContent = 'Press a letter key to jump to that stack:';
+      instructions.textContent = 'Use W/S to navigate, A/D to switch panels, Enter to select:';
+
+    instructions.textContent = 'Use W/S to navigate, A/D to switch panels, Enter to select:';
+
+    // Create search input
+    const searchInputContainer = document.createElement('div');
+    searchInputContainer.className = 'blockly-stack-search-input-container';
+
+    const searchInput = document.createElement('input');
+    searchInput.type = 'text';
+    searchInput.placeholder = 'Search stacks... (e.g., "App" for "B Apple")';
+    searchInput.className = 'blockly-stack-search-input';
+    searchInput.setAttribute('aria-label', 'Search stacks by name');
+    searchInputContainer.appendChild(searchInput);
+
+    // Create dual-panel container
+    const panelContainer = document.createElement('div');
+    panelContainer.className = 'blockly-stack-search-panels';
+
+    // Left panel - Stack list
+    const stackPanel = document.createElement('div');
+    stackPanel.className = 'blockly-stack-search-panel stack-panel active';
+
+    const stackPanelTitle = document.createElement('div');
+    stackPanelTitle.className = 'panel-title';
+    stackPanelTitle.textContent = 'Stacks';
+    stackPanel.appendChild(stackPanelTitle);
 
     const stackList = document.createElement('div');
-    stackList.className = 'blockly-stack-search-list';
+    stackList.className = 'blockly-stack-search-list stack-results';
 
-    // Add available stacks
-    availableStacks.forEach(stack => {
-      const stackItem = document.createElement('div');
-      stackItem.className = 'blockly-stack-search-item';
-      stackItem.textContent = `${stack.letter} - ${stack.label}`;
-      stackList.appendChild(stackItem);
-    });
+    // Right panel - Block list
+    const blockPanel = document.createElement('div');
+    blockPanel.className = 'blockly-stack-search-panel block-panel';
+
+    const blockPanelTitle = document.createElement('div');
+    blockPanelTitle.className = 'panel-title';
+    blockPanelTitle.textContent = 'Blocks';
+    blockPanel.appendChild(blockPanelTitle);
+
+    const blockList = document.createElement('div');
+    blockList.className = 'blockly-stack-search-list block-results';
+
+    blockPanel.appendChild(blockList);
+    stackPanel.appendChild(stackList);
+
+    panelContainer.appendChild(stackPanel);
+    panelContainer.appendChild(blockPanel);
 
     const cancelInstructions = document.createElement('div');
     cancelInstructions.className = 'blockly-stack-search-cancel';
     cancelInstructions.textContent = 'Press Escape to cancel';
 
+    // Add live region for screen reader announcements
+    const liveRegion = document.createElement('div');
+    liveRegion.setAttribute('aria-live', 'assertive');
+    liveRegion.setAttribute('aria-atomic', 'true');
+    liveRegion.style.position = 'absolute';
+    liveRegion.style.left = '-10000px';
+    liveRegion.style.width = '1px';
+    liveRegion.style.height = '1px';
+    liveRegion.style.overflow = 'hidden';
+
     content.appendChild(title);
     content.appendChild(instructions);
-    content.appendChild(stackList);
+    content.appendChild(searchInputContainer);
+    content.appendChild(panelContainer);
     content.appendChild(cancelInstructions);
+    content.appendChild(liveRegion);
     overlay.appendChild(content);
+
+    // Set up search input event listener
+    searchInput.addEventListener('input', (e) => {
+      this.handleSearchInput_(e.target.value);
+    });
+
+    // Add keydown listener to search input for W/S navigation
+    searchInput.addEventListener('keydown', (e) => {
+      // Allow W/S navigation even while typing in search box
+      if (e.key.toUpperCase() === 'W' || e.key.toUpperCase() === 'S') {
+        // Let the main key handler deal with this
+        return;
+      }
+    });
 
     // Add to document
     document.body.appendChild(overlay);
     this.activeOverlay_ = overlay;
 
-    // Focus the overlay for accessibility
+    // Initialize the display
+    this.updateStackList_();
+    this.updateBlockList_();
+
+    // Don't auto-focus search input - let users choose navigation method
+    // Focus the overlay for accessibility, but allow W/S navigation by default
     overlay.focus();
+    overlay.setAttribute('tabindex', '0');
   }
 
   /**
@@ -278,21 +382,97 @@ export class StackSearchManager {
 
       const key = event.key.toUpperCase();
 
-      // Handle Escape key to cancel
+      // Check if user is actively typing in the search input
+      const isTypingInInput = event.target && event.target.classList.contains('blockly-stack-search-input');
+
+      // Handle Escape to cancel search (works from anywhere)
       if (event.key === 'Escape') {
-        this.cancelSearch_();
         event.preventDefault();
         event.stopPropagation();
+        this.cancelSearch_();
         return;
       }
 
-      // Handle letter keys for navigation
-      if (key.length === 1 && key >= 'A' && key <= 'Z') {
-        if (this.navigateToStack_(key)) {
-          this.cancelSearch_();
-        }
+      // Handle Tab key to move to search input when not already there
+      if (event.key === 'Tab' && !isTypingInInput) {
         event.preventDefault();
         event.stopPropagation();
+        const searchInput = this.activeOverlay_?.querySelector('.blockly-stack-search-input');
+        if (searchInput) {
+          searchInput.focus();
+          this.announceMessage_('Search input focused. Type to search stacks.');
+        }
+        return;
+      }
+
+      // Handle W key (up navigation) - works even when typing in search input
+      if (key === 'W') {
+        event.preventDefault();
+        event.stopPropagation();
+        this.moveSelection_(-1);
+        return;
+      }
+
+      // Handle S key (down navigation) - works even when typing in search input
+      if (key === 'S') {
+        event.preventDefault();
+        event.stopPropagation();
+        this.moveSelection_(1);
+        return;
+      }
+
+      // Handle A key (switch to left panel - stacks) - only when not typing and not on stacks already
+      if (key === 'A' && !isTypingInInput && this.activePanel_ === 'blocks') {
+        event.preventDefault();
+        event.stopPropagation();
+        this.switchToPanel_('stacks');
+        return;
+      }
+
+      // Handle D key (switch to right panel - blocks) - only when not typing and on stacks panel
+      if (key === 'D' && !isTypingInInput && this.activePanel_ === 'stacks') {
+        event.preventDefault();
+        event.stopPropagation();
+        this.switchToPanel_('blocks');
+        return;
+      }
+
+      // Handle Enter key (select current stack or block)
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        event.stopPropagation();
+        this.selectCurrentItem_();
+        return;
+      }
+
+      // Handle single letter keys for direct navigation (A-Z) - only when not typing in input
+      if (key.length === 1 && key >= 'A' && key <= 'Z' && !isTypingInInput) {
+        event.preventDefault();
+        event.stopPropagation();
+
+        // Try to navigate directly to the stack with this letter
+        if (this.navigateToStack_(key)) {
+          this.cancelSearch_();
+        } else {
+          this.announceMessage_(`No stack found with label ${key}`);
+        }
+        return;
+      }
+
+      // If user starts typing other characters (not W/S/Enter/Tab) and not in search input,
+      // auto-focus the search input to enable search mode
+      if (!isTypingInInput && key.length === 1 &&
+          key !== 'W' && key !== 'S' && event.key !== 'Enter' && event.key !== 'Tab' && event.key !== 'Escape') {
+        const searchInput = this.activeOverlay_?.querySelector('.blockly-stack-search-input');
+        if (searchInput) {
+          searchInput.focus();
+          // Let the character through to the search input
+          searchInput.value = event.key.toLowerCase();
+          this.handleSearchInput_(event.key.toLowerCase());
+          this.announceMessage_('Search mode activated. Continue typing to search stacks.');
+          event.preventDefault();
+        }
+        return;
       }
     };
 
@@ -301,6 +481,173 @@ export class StackSearchManager {
     this.boundEventHandlers_.push(() => {
       document.removeEventListener('keydown', keyHandler, true);
     });
+  }
+
+  /**
+   * Switch to a specific panel (stacks or blocks).
+   * @param {string} panelType Either 'stacks' or 'blocks'.
+   * @private
+   */
+  switchToPanel_(panelType) {
+    if (!this.activeOverlay_) return;
+
+    // Update active panel
+    this.activePanel_ = panelType;
+
+    // Update visual indicators
+    const stackPanel = this.activeOverlay_.querySelector('.stack-panel');
+    const blockPanel = this.activeOverlay_.querySelector('.block-panel');
+
+    if (panelType === 'stacks') {
+      stackPanel?.classList.add('active');
+      blockPanel?.classList.remove('active');
+      // Reset block selection when switching back to stacks
+      this.blockSelectionIndex_ = 0;
+      this.announceMessage_('Stack panel selected. Use W/S to navigate stacks, D to view blocks.');
+    } else {
+      stackPanel?.classList.remove('active');
+      blockPanel?.classList.add('active');
+      // Ensure we have blocks to navigate to
+      if (this.availableBlocks_.length === 0) {
+        this.updateBlockList_();
+      }
+      this.announceMessage_(`Block panel selected. ${this.availableBlocks_.length} blocks available. Use W/S to navigate, A to go back to stacks.`);
+    }
+
+    // Update selection highlight
+    this.updateSelectionHighlight_();
+  }
+
+  /**
+   * Move selection up or down in the current panel.
+   * @param {number} direction -1 for up, 1 for down
+   * @private
+   */
+  moveSelection_(direction) {
+    if (!this.activeOverlay_) return;
+
+    if (this.activePanel_ === 'stacks') {
+      // Navigate in stacks panel
+      const newIndex = Math.max(0, Math.min(this.availableStacks_.length - 1, this.currentSelectionIndex_ + direction));
+
+      if (newIndex !== this.currentSelectionIndex_) {
+        this.currentSelectionIndex_ = newIndex;
+        this.updateSelectionHighlight_();
+
+        // Update blocks panel for newly selected stack
+        this.updateBlockList_();
+
+        // Announce selection
+        const selectedStack = this.availableStacks_[newIndex];
+        if (selectedStack) {
+          this.announceMessage_(`Selected stack ${selectedStack.label}, ${newIndex + 1} of ${this.availableStacks_.length}. Press D to view blocks.`);
+        }
+      }
+    } else {
+      // Navigate in blocks panel
+      const newIndex = Math.max(0, Math.min(this.availableBlocks_.length - 1, this.blockSelectionIndex_ + direction));
+
+      if (newIndex !== this.blockSelectionIndex_) {
+        this.blockSelectionIndex_ = newIndex;
+        this.updateSelectionHighlight_();
+
+        // Announce selection
+        const selectedBlock = this.availableBlocks_[newIndex];
+        if (selectedBlock) {
+          this.announceMessage_(`Selected block ${selectedBlock.number}, ${newIndex + 1} of ${this.availableBlocks_.length}. Press A to go back to stacks.`);
+        }
+      }
+    }
+  }
+
+  /**
+   * Select the currently highlighted item (stack or block).
+   * @private
+   */
+  selectCurrentItem_() {
+    if (this.activePanel_ === 'stacks') {
+      // Select entire stack (existing behavior)
+      this.selectCurrentStack_();
+    } else {
+      // Select specific block
+      this.selectCurrentBlock_();
+    }
+  }
+
+  /**
+   * Select the currently highlighted stack.
+   * @private
+   */
+  selectCurrentStack_() {
+    if (!this.availableStacks_ || this.currentSelectionIndex_ < 0 || this.currentSelectionIndex_ >= this.availableStacks_.length) {
+      return;
+    }
+
+    const selectedStack = this.availableStacks_[this.currentSelectionIndex_];
+    const stackLetter = selectedStack.letter;
+
+    if (stackLetter) {
+      if (this.navigateToStack_(stackLetter)) {
+        this.cancelSearch_();
+      }
+    }
+  }
+
+  /**
+   * Select the currently highlighted block.
+   * @private
+   */
+  selectCurrentBlock_() {
+    if (!this.availableBlocks_ || this.blockSelectionIndex_ < 0 || this.blockSelectionIndex_ >= this.availableBlocks_.length) {
+      return;
+    }
+
+    const selectedBlock = this.availableBlocks_[this.blockSelectionIndex_];
+
+    if (this.navigateToBlock_(selectedBlock.blockId)) {
+      this.cancelSearch_();
+    }
+  }
+
+  /**
+   * Navigate to a specific block by its ID.
+   * @param {string} blockId The ID of the block to navigate to.
+   * @return {boolean} True if navigation was successful.
+   * @private
+   */
+  navigateToBlock_(blockId) {
+    // Get the target block
+    const targetBlock = this.workspace_.getBlockById(blockId);
+    if (!targetBlock) {
+      this.announceMessage_('Block not found');
+      return false;
+    }
+
+    // Move cursor to the target block
+    const cursor = this.workspace_.getCursor();
+    if (!cursor) {
+      this.announceMessage_('Workspace cursor not available');
+      return false;
+    }
+
+    try {
+      // Create an AST node for the block and move cursor to it
+      const astNode = Blockly.ASTNode.createBlockNode(targetBlock);
+      cursor.setCurNode(astNode);
+
+      // Get block description for announcement
+      const blockText = typeof targetBlock.toString === 'function' ?
+          targetBlock.toString(undefined, ' ').trim() : 'Block';
+
+      // Announce successful navigation
+      this.announceMessage_(`Navigated to block: ${blockText}`);
+
+      return true;
+    } catch (e) {
+      console.warn('Stack search: Error navigating to block', e);
+      this.announceMessage_('Error navigating to block');
+      return false;
+    }
   }
 
   /**
@@ -347,6 +694,7 @@ export class StackSearchManager {
     }
 
     try {
+      console.log('Stack search: Successfully navigated to stack', letter, targetBlockId);
       // Create an AST node for the block and move cursor to it
       const astNode = Blockly.ASTNode.createStackNode(targetBlock);
       cursor.setCurNode(astNode);
@@ -363,6 +711,195 @@ export class StackSearchManager {
       console.warn('Stack search log: Error navigating to block', e);
       this.announceMessage_(`Error navigating to stack ${letter}`);
       return false;
+    }
+  }
+
+  /**
+   * Update the stack list display with current filtered results.
+   * @private
+   */
+  updateStackList_() {
+    if (!this.activeOverlay_) return;
+
+    const stackList = this.activeOverlay_.querySelector('.stack-results');
+    if (!stackList) return;
+
+    // Clear existing items
+    stackList.innerHTML = '';
+
+    // Add filtered stacks
+    this.availableStacks_.forEach((stack, index) => {
+      const stackItem = document.createElement('div');
+      stackItem.className = 'blockly-stack-search-item stack-result-item';
+      stackItem.textContent = `${stack.letter} - ${stack.label}`;
+      stackItem.setAttribute('data-stack-id', stack.blockId);
+      stackItem.setAttribute('data-stack-letter', stack.letter);
+
+      // Highlight selected item
+      if (index === this.currentSelectionIndex_ && this.activePanel_ === 'stacks') {
+        stackItem.classList.add('selected');
+      }
+
+      stackList.appendChild(stackItem);
+    });
+  }
+
+  /**
+   * Update the block list for the currently selected stack.
+   * @private
+   */
+  updateBlockList_() {
+    if (!this.activeOverlay_) return;
+
+    const blockList = this.activeOverlay_.querySelector('.block-results');
+    if (!blockList) return;
+
+    // Clear existing items
+    blockList.innerHTML = '';
+
+    // Get blocks for currently selected stack
+    this.availableBlocks_ = this.getBlocksForCurrentStack_();
+
+    // Add block items - show just numbers
+    console.log(`Stack search: Displaying ${this.availableBlocks_.length} blocks in right panel`);
+    this.availableBlocks_.forEach((blockInfo, index) => {
+      const blockItem = document.createElement('div');
+      blockItem.className = 'blockly-stack-search-item block-result-item';
+      blockItem.textContent = blockInfo.number.toString(); // Just show the number
+      blockItem.setAttribute('data-block-id', blockInfo.blockId);
+      blockItem.setAttribute('data-block-number', blockInfo.number.toString());
+
+      console.log(`Stack search: Adding block item ${blockInfo.number} to display`);
+
+      // Highlight selected item
+      if (index === this.blockSelectionIndex_ && this.activePanel_ === 'blocks') {
+        blockItem.classList.add('selected');
+        console.log(`Stack search: Highlighting block ${blockInfo.number} as selected`);
+      }
+
+      blockList.appendChild(blockItem);
+    });
+  }
+
+  /**
+   * Get block information for the currently selected stack.
+   * @return {!Array<{number: number, blockId: string, description: string}>} Block info array.
+   * @private
+   */
+  getBlocksForCurrentStack_() {
+    if (!this.availableStacks_ || this.currentSelectionIndex_ < 0 || this.currentSelectionIndex_ >= this.availableStacks_.length) {
+      console.log('Stack search: No valid stack selected for block retrieval');
+      return [];
+    }
+
+    const selectedStack = this.availableStacks_[this.currentSelectionIndex_];
+    const topBlockId = selectedStack.blockId;
+    const topBlock = this.workspace_.getBlockById(topBlockId);
+
+    console.log(`Stack search: Getting blocks for stack ${selectedStack.label}, top block ID: ${topBlockId}`);
+
+    if (!topBlock) {
+      console.log('Stack search: Top block not found');
+      return [];
+    }
+
+    const blocks = [];
+    let currentBlock = topBlock;
+    let blockNumber = 1;
+
+    // Walk through the stack and collect block information
+    while (currentBlock) {
+      const blockText = currentBlock.type || 'Unknown Block';
+
+      console.log(`Stack search: Found block ${blockNumber}: ${currentBlock.id} (${blockText})`);
+
+      blocks.push({
+        number: blockNumber,
+        blockId: currentBlock.id,
+        description: blockText
+      });
+
+      blockNumber++;
+
+      // Get next block in the stack - only follow nextConnection (main chain)
+      if (currentBlock.nextConnection && currentBlock.nextConnection.isConnected()) {
+        currentBlock = currentBlock.nextConnection.targetBlock();
+        console.log(`Stack search: Found next block via nextConnection: ${currentBlock.id}`);
+      } else {
+        console.log(`Stack search: No more blocks in main chain`);
+        break;
+      }
+    }
+
+    console.log(`Stack search: Total blocks found in stack: ${blocks.length}`);
+    return blocks;
+  }
+
+  /**
+   * Update the visual selection highlight.
+   * @private
+   */
+  updateSelectionHighlight_() {
+    if (!this.activeOverlay_) return;
+
+    console.log(`Stack search: Updating highlights - active panel: ${this.activePanel_}, stack index: ${this.currentSelectionIndex_}, block index: ${this.blockSelectionIndex_}`);
+
+    // Update stack highlights
+    const stackItems = this.activeOverlay_.querySelectorAll('.stack-result-item');
+    console.log(`Stack search: Found ${stackItems.length} stack items`);
+    stackItems.forEach((item, index) => {
+      if (index === this.currentSelectionIndex_ && this.activePanel_ === 'stacks') {
+        item.classList.add('selected');
+        console.log(`Stack search: Highlighting stack item ${index} as selected`);
+      } else {
+        item.classList.remove('selected');
+      }
+    });
+
+    // Update block highlights
+    const blockItems = this.activeOverlay_.querySelectorAll('.block-result-item');
+    console.log(`Stack search: Found ${blockItems.length} block items`);
+    blockItems.forEach((item, index) => {
+      if (index === this.blockSelectionIndex_ && this.activePanel_ === 'blocks') {
+        item.classList.add('selected');
+        console.log(`Stack search: Highlighting block item ${index} as selected`);
+      } else {
+        item.classList.remove('selected');
+      }
+    });
+  }
+
+  /**
+   * Handle search input text changes and filter stacks.
+   * @param {string} searchText The text to search for.
+   * @private
+   */
+  handleSearchInput_(searchText) {
+    this.searchQuery_ = searchText.toLowerCase();
+
+    // Filter stacks based on search query
+    if (this.searchQuery_.length === 0) {
+      this.availableStacks_ = this.allAvailableStacks_;
+    } else {
+      this.availableStacks_ = this.allAvailableStacks_.filter(stack => {
+        const labelLower = stack.label.toLowerCase();
+        const letterLower = stack.letter.toLowerCase();
+        return labelLower.includes(this.searchQuery_) || letterLower.includes(this.searchQuery_);
+      });
+    }
+
+    // Reset selection to first item
+    this.currentSelectionIndex_ = 0;
+
+    // Update the displays
+    this.updateStackList_();
+    this.updateBlockList_();
+
+    // Announce results to screen reader
+    if (this.availableStacks_.length === 0) {
+      this.announceMessage_(`No stacks found matching "${searchText}"`);
+    } else if (this.searchQuery_.length > 0) {
+      this.announceMessage_(`${this.availableStacks_.length} stacks found matching "${searchText}"`);
     }
   }
 
@@ -530,12 +1067,45 @@ document.head.insertAdjacentHTML('beforeend', `
     border: 2px solid #1976d2;
     border-radius: 8px;
     padding: 20px;
-    min-width: 300px;
-    max-width: 500px;
+    min-width: 600px;
+    max-width: 800px;
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
     z-index: 10000;
     font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
     outline: none;
+  }
+  
+  .blockly-stack-search-panels {
+    display: flex;
+    gap: 20px;
+    margin-bottom: 16px;
+  }
+  
+  .blockly-stack-search-panel {
+    flex: 1;
+    border: 2px solid #ddd;
+    border-radius: 4px;
+    background: #f9f9f9;
+  }
+  
+  .blockly-stack-search-panel.active {
+    border-color: #1976d2;
+    background: #e3f2fd;
+  }
+  
+  .panel-title {
+    background: #1976d2;
+    color: white;
+    padding: 8px 12px;
+    font-weight: bold;
+    font-size: 14px;
+    margin: 0;
+    border-top-left-radius: 2px;
+    border-top-right-radius: 2px;
+  }
+  
+  .blockly-stack-search-panel.active .panel-title {
+    background: #0d47a1;
   }
   
   .blockly-stack-search-title {
@@ -554,12 +1124,13 @@ document.head.insertAdjacentHTML('beforeend', `
   }
   
   .blockly-stack-search-list {
-    max-height: 300px;
+    max-height: 200px;
     overflow-y: auto;
-    margin-bottom: 16px;
-    border: 1px solid #ddd;
-    border-radius: 4px;
-    background: #f9f9f9;
+    margin: 0;
+    border: none;
+    border-radius: 0;
+    background: transparent;
+    padding: 8px;
   }
   
   .blockly-stack-search-item {
@@ -576,6 +1147,13 @@ document.head.insertAdjacentHTML('beforeend', `
   
   .blockly-stack-search-item:hover {
     background: #e3f2fd;
+  }
+  
+  .blockly-stack-search-item.selected {
+    background: #1976d2 !important;
+    color: white !important;
+    font-weight: bold;
+    border: 2px solid #0d47a1;
   }
   
   .blockly-stack-search-cancel {
