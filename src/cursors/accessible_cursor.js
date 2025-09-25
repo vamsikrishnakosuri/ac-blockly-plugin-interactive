@@ -647,6 +647,72 @@ export class AccessibleCursor extends Blockly.Cursor {
         return closest;
     }
 
+
+    /**
+     * Return the first editable field on a block, optionally preferring dropdown-like fields.
+     * @param {Blockly.Block} block
+     * @param {Object} [opts]
+     * @param {boolean} [opts.preferDropdown=true]
+     * @returns {?Object} A Blockly.Field or null if none found
+     */
+    _getFirstEditableField(block, { preferDropdown = true } = {}) {
+        if (!block) return [];
+
+        const editableFields = [];
+        for (const input of block.inputList) {
+            for (const field of input.fieldRow) {
+                if (typeof field?.isCurrentlyEditable === 'function' && field.isCurrentlyEditable()) {
+                    editableFields.push(field);
+                }
+            }
+        }
+        if (editableFields.length === 0) return null;
+
+        if (preferDropdown) {
+            const dropdown = editableFields.find(f => this._isDropdownLikeField(f));
+            if (dropdown) return dropdown;
+        }
+        // fallback: first editable (text/number/etc.)
+        return editableFields[0];
+    }
+
+    _isDropdownLikeField(field) {
+        if (!field) return false;
+        const hasOptions = typeof field?.getOptions === 'function';
+
+        const isDropdown =
+            (typeof Blockly.FieldDropdown !== 'undefined' && field instanceof Blockly.FieldDropdown) ||
+            (typeof Blockly.FieldVariable !== 'undefined' && field instanceof Blockly.FieldVariable);
+
+        return !!(hasOptions || isDropdown);
+    }
+
+    /**
+     * Focus and open the first editable dropdown-like field on the current block.
+     * - Works in navigation mode (not restricted to editMode).
+     * @returns {?Blockly.ASTNode} The focused FIELD node or null if none found.
+     */
+    openDropdown() {
+        const curNode = this.getCurNode?.();
+        if (!curNode) return null;
+
+        const block = curNode.getSourceBlock?.();
+        if (!block) return null;
+
+        // prefer editable dropdown-like fields on this block.
+        const field = this._getFirstEditableField(block, { preferDropdown: true });
+        if (!field || !this._isDropdownLikeField(field)) {
+            return null; // no dropdown to open here
+        }
+
+        // focus the field node.
+        const fieldNode = Blockly.ASTNode.createFieldNode(field);
+        this.setCurNode(fieldNode);
+
+        return fieldNode;
+    }
+
+
     layerIn() {
         if (this.editMode) {
             this.editConnection = "LAYER_IN";

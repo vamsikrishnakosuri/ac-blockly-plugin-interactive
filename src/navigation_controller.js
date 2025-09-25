@@ -1796,8 +1796,8 @@ export class NavigationController {
     Blockly.ShortcutRegistry.registry.register(moveUpShortcut);
     Blockly.ShortcutRegistry.registry.register(moveDownShortcut);
 
-    const ctrlW = Blockly.ShortcutRegistry.registry.createSerializedKey(Blockly.utils.KeyCodes.W, [Blockly.utils.KeyCodes.CTRL]);
-    const ctrlS = Blockly.ShortcutRegistry.registry.createSerializedKey(Blockly.utils.KeyCodes.S, [Blockly.utils.KeyCodes.CTRL]);
+    const ctrlW = Blockly.ShortcutRegistry.registry.createSerializedKey(Blockly.utils.KeyCodes.W, [Blockly.utils.KeyCodes.SHIFT]);
+    const ctrlS = Blockly.ShortcutRegistry.registry.createSerializedKey(Blockly.utils.KeyCodes.S, [Blockly.utils.KeyCodes.SHIFT]);
 
     Blockly.ShortcutRegistry.registry.addKeyMapping(ctrlW, moveUpShortcut.name, true);
     Blockly.ShortcutRegistry.registry.addKeyMapping(ctrlS, moveDownShortcut.name, true);
@@ -2090,7 +2090,56 @@ export class NavigationController {
     this.registerShowShortcuts();
     this.registerShowNavigationalHint();
     this.registerStackJumpShortcuts();
+    this.registerOpenDropdown();
   }
+
+  /**
+   * Keyboard shortcut to open the first editable dropdown on the current block.
+   * Shift + F
+   * @protected
+   */
+  registerOpenDropdown() {
+    /** @type {!Blockly.ShortcutRegistry.KeyboardShortcut} */
+    const shortcut = {
+      name: Constants.SHORTCUT_NAMES.OPEN_DROPDOWN,
+      preconditionFn: (workspace) => {
+        return workspace.keyboardAccessibilityMode && !workspace.options.readOnly && !Blockly.Gesture.inProgress();
+      },
+      callback: (workspace /*, e, shortcut*/) => {
+        if (this.navigation.getState(workspace) !== Constants.STATE.WORKSPACE) {
+          // Optional: allow from toolbox/flyout by first focusing workspace
+          // this.navigation.focusWorkspace(workspace);
+          return false;
+        }
+        const cursor = workspace.getCursor?.();
+        if (!cursor || typeof cursor.openDropdown !== 'function') return false;
+
+        const node = cursor.openDropdown();
+        if (node && node.getType?.() === Blockly.ASTNode.types.FIELD) {
+          // announce selection
+          try {
+            const field = node.getLocation?.();
+            const owner = field?.getSourceBlock?.();
+            const label = this.speech.blockToText(owner) || 'block';
+            this.speech.update(`Cursor on selector of ${label}.`);
+          } catch {}
+          return true;
+        }
+
+        this.speech.update('No dropdown found on this block.');
+        return true; // handled (we gave feedback)
+      },
+    };
+
+    Blockly.ShortcutRegistry.registry.register(shortcut);
+
+    const shiftF = Blockly.ShortcutRegistry.registry.createSerializedKey(
+        Blockly.utils.KeyCodes.F,
+        [Blockly.utils.KeyCodes.SHIFT],
+    );
+    Blockly.ShortcutRegistry.registry.addKeyMapping(shiftF, shortcut.name, true);
+  }
+
 
   /**
    * Keyboard shortcut to search stacks with Alt+Shift+G.

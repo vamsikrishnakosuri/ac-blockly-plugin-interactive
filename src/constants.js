@@ -48,7 +48,8 @@ export const SHORTCUT_NAMES = {
   MOVE_STATEMENT_DOWN: "keyboard_move_stmt_down",
   SHOW_SHORTCUTS: 'show_shortcuts',
   SHOW_NAV_HINT: 'show_nav_hint',
-  STACK_JUMP_PREFIX: 'stack_jump_'
+  STACK_JUMP_PREFIX: 'stack_jump_',
+  OPEN_DROPDOWN: "nav_drop_down"
 };
 
 /**
@@ -130,12 +131,12 @@ export const SHORTCUT_HELP_ROWS = [
     sr: 'Shortcut keys Shift plus X. Disconnect the block from the current cursor location. Edit mode only.'
   },
   {
-    keys: ['CTRL', 'W'],
+    keys: ['SHIFT', 'W'],
     title: 'Move the selected statement block upward (Navigation Mode Only)',
     sr: 'Shortcut keys Ctrl plus W. Move the selected statement block upward. Navigation mode only.'
   },
   {
-    keys: ['CTRL', 'S'],
+    keys: ['SHIFT', 'S'],
     title: 'Move the selected statement block downward (Navigation Mode Only)',
     sr: 'Shortcut keys Ctrl plus S. Move the selected statement block downward. Navigation mode only.'
   },
@@ -178,6 +179,11 @@ export const SHORTCUT_HELP_ROWS = [
     keys: ['Shift', 'A'],
     title: 'Move workspace marker left',
     sr: 'Shortcut keys Shift plus A. Move the workspace marker left.'
+  },
+  {
+    keys: ['Shift', 'F'],
+    title: 'Focus to the property of a block',
+    sr: 'Shortcut keys Shift plus F. Move the the cursor to a block property.'
   },
   {
     keys: ['ALT', 'Shift', 'G'],
