@@ -23,6 +23,7 @@ import { initStackLabels, disposeStackLabels, getStackLabelManager, getStackLabe
 import { initStackSearch, disposeStackSearch, getStackSearchManager } from './labels_and_comments/stack_search.js';
 import {ShortcutAssistance} from "./util/shortcut_assistance";
 import {NavigationalHint} from "./util/navigational_hint";
+import { ZoomingControl } from './util/zooming_controls';
 
 /**
  * Class for registering shortcuts for keyboard navigation.
@@ -61,6 +62,7 @@ export class NavigationController {
       this.navHint = new NavigationalHint({ speech: this.speech });
     }
     this.keyHintListener = null;
+    this.zooming = new ZoomingControl();
   }
 
   /**
@@ -2091,7 +2093,108 @@ export class NavigationController {
     this.registerShowNavigationalHint();
     this.registerStackJumpShortcuts();
     this.registerOpenDropdown();
+
+    this.registerZoomIn();
+    this.registerZoomOut();
+    this.registerZoomReset();
   }
+
+
+  /**
+   * Keyboard shortcut to zoom in
+   * Shift + '=' and (optionally) Numpad '+'
+   * @protected
+   */
+  registerZoomIn() {
+    /** @type {!Blockly.ShortcutRegistry.KeyboardShortcut} */
+    const registerZoomInShortcut = {
+      name: Constants.SHORTCUT_NAMES.ZOOM_IN,
+      preconditionFn: function (ws) {
+        return !(ws && ws.options && ws.options.readOnly) &&
+            !(Blockly.Gesture && typeof Blockly.Gesture.inProgress === 'function' && Blockly.Gesture.inProgress());
+      },
+      callback: function () {
+        return this.zooming.zoomIn(workspace);
+      }.bind(this)
+    };
+
+    Blockly.ShortcutRegistry.registry.register(registerZoomInShortcut);
+    Blockly.ShortcutRegistry.registry.addKeyMapping(
+        Blockly.utils.KeyCodes.NUM_PLUS,
+        registerZoomInShortcut.name,
+        true
+    );
+    Blockly.ShortcutRegistry.registry.addKeyMapping(
+        Blockly.ShortcutRegistry.registry.createSerializedKey(
+            Blockly.utils.KeyCodes.EQUALS, [Blockly.utils.KeyCodes.SHIFT]
+        ),
+        registerZoomInShortcut.name,
+        true
+    );
+  }
+
+  /**
+   * Keyboard shortcut to zoom out
+   * '-' and (optionally) Numpad '-'
+   * @protected
+   */
+  registerZoomOut() {
+    /** @type {!Blockly.ShortcutRegistry.KeyboardShortcut} */
+    const registerZoomOutShortcut = {
+      name: Constants.SHORTCUT_NAMES.ZOOM_OUT,
+      preconditionFn: function (ws) {
+        return !(ws && ws.options && ws.options.readOnly) &&
+            !(Blockly.Gesture && typeof Blockly.Gesture.inProgress === 'function' && Blockly.Gesture.inProgress());
+      },
+      callback: function () {
+        return this.zooming.zoomOut(workspace);
+      }.bind(this)
+    };
+
+    Blockly.ShortcutRegistry.registry.register(registerZoomOutShortcut);
+    Blockly.ShortcutRegistry.registry.addKeyMapping(
+        Blockly.utils.KeyCodes.DASH,
+        registerZoomOutShortcut.name,
+        true
+    );
+    Blockly.ShortcutRegistry.registry.addKeyMapping(
+        Blockly.utils.KeyCodes.NUM_MINUS,
+        registerZoomOutShortcut.name,
+        true
+    );
+  }
+
+  /**
+   * Keyboard shortcut to reset zoom
+   * '0' and (optionally) Numpad '0'
+   * @protected
+   */
+  registerZoomReset() {
+    /** @type {!Blockly.ShortcutRegistry.KeyboardShortcut} */
+    const registerZoomResetShortcut = {
+      name: Constants.SHORTCUT_NAMES.ZOOM_RESET,
+      preconditionFn: function (ws) {
+        return !(ws && ws.options && ws.options.readOnly) &&
+            !(Blockly.Gesture && typeof Blockly.Gesture.inProgress === 'function' && Blockly.Gesture.inProgress());
+      },
+      callback: function () {
+        return this.zooming.zoomReset(workspace);
+      }.bind(this)
+    };
+
+    Blockly.ShortcutRegistry.registry.register(registerZoomResetShortcut);
+    Blockly.ShortcutRegistry.registry.addKeyMapping(
+        Blockly.utils.KeyCodes.ZERO,
+        registerZoomResetShortcut.name,
+        true
+    );
+    Blockly.ShortcutRegistry.registry.addKeyMapping(
+        Blockly.utils.KeyCodes.NUM_ZERO,
+        registerZoomResetShortcut.name,
+        true
+    );
+  }
+
 
   /**
    * Keyboard shortcut to open the first editable dropdown on the current block.
