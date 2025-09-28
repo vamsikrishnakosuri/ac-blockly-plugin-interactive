@@ -49,7 +49,10 @@ export const SHORTCUT_NAMES = {
   SHOW_SHORTCUTS: 'show_shortcuts',
   SHOW_NAV_HINT: 'show_nav_hint',
   STACK_JUMP_PREFIX: 'stack_jump_',
-  OPEN_DROPDOWN: "nav_drop_down"
+  OPEN_DROPDOWN: "nav_drop_down",
+  ZOOM_RESET: "nav_zoom_reset",
+  ZOOM_IN: "nav_zoom_in",
+  ZOOM_OUT: "nav_zoom_out",
 };
 
 /**
@@ -124,6 +127,21 @@ export const SHORTCUT_HELP_ROWS = [
     keys: ['C'],
     title: 'Announce current cursor location',
     sr: 'Shortcut key C. Announce the current cursor location.'
+  },
+  {
+    keys: ['+', 'Shift + =', 'Numpad +'],
+    title: 'Zoom in workspace',
+    sr: 'Shortcut key Plus. Zoom in the workspace.'
+  },
+  {
+    keys: ['-', 'Numpad -'],
+    title: 'Zoom out workspace',
+    sr: 'Shortcut key Minus. Zoom out the workspace.'
+  },
+  {
+    keys: ['0', 'Numpad 0'],
+    title: 'Reset zoom',
+    sr: 'Shortcut key Zero. Reset the workspace zoom to the default scale.'
   },
   {
     keys: ['Shift', 'X'],
