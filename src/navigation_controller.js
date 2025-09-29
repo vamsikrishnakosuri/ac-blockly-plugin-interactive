@@ -799,6 +799,7 @@ export class NavigationController {
       callback: (workspace) => {
         const editMode = this.accessibleCursor.toggleEditMode();
         const curNode = this.accessibleCursor.getCurNode();
+        this.navigation.removeMark?.(workspace);
         this.speech.announceEditModeToggle(editMode, curNode);
       },
     };

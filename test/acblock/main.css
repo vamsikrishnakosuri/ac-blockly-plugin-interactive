@@ -524,3 +524,16 @@ pre code {
         color: #333;
     }
 }
+
+/* Red + blinking for any highlighted connection path */
+.blocklyHighlightedConnectionPath {
+    stroke: #FF4D2E !important;
+    animation: blockly-conn-blink 1.5s steps(1) infinite;
+}
+
+@keyframes blockly-conn-blink {
+    0%, 49% { opacity: 1; }
+    50%, 100% { opacity: 0; }
+}
+
+
