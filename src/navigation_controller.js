@@ -1760,6 +1760,14 @@ export class NavigationController {
       },
       callback: (workspace, e) => {
         if (e && e.preventDefault) e.preventDefault();
+        if (this.navigation.getState(workspace) !== Constants.STATE.WORKSPACE) {
+          // marker is not in workspace
+          return true;
+        }
+        const acCursor = workspace.getCursor();
+        if (acCursor.getCurNode()?.getType() !== Blockly.ASTNode.types.BLOCK) {
+          return this.navigation.moveWSCursor(workspace, 0, -1);
+        }
         const block = this._currentStatementBlock(workspace);
         if (!block) {
           this.speech.update('No movable statement block selected.');
@@ -1783,6 +1791,14 @@ export class NavigationController {
       },
       callback: (workspace, e) => {
         if (e && e.preventDefault) e.preventDefault();
+        if (this.navigation.getState(workspace) !== Constants.STATE.WORKSPACE) {
+          // marker is not in workspace
+          return true;
+        }
+        const acCursor = workspace.getCursor();
+        if (acCursor.getCurNode()?.getType() !== Blockly.ASTNode.types.BLOCK) {
+          return this.navigation.moveWSCursor(workspace, 0, 1);
+        }
         const block = this._currentStatementBlock(workspace);
         if (!block) {
           this.speech.update('No movable statement block selected.');
@@ -2078,9 +2094,9 @@ export class NavigationController {
     this.registerToolboxFocus();
     this.registerToggleKeyboardNav();
 
-    this.registerWorkspaceMoveDown();
+    // this.registerWorkspaceMoveDown();
     this.registerWorkspaceMoveLeft();
-    this.registerWorkspaceMoveUp();
+    // this.registerWorkspaceMoveUp();
     this.registerWorkspaceMoveRight();
 
     this.registerCopy();
