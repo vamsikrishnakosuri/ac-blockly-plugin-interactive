@@ -259,23 +259,27 @@ export class StackLabelManager {
     // Keep track of known block count
     this.lastBlockCount_ = 0;
 
-    // Set up periodic detection
+    // Set up periodic detection - more aggressive
     this.blockDetectionInterval_ = setInterval(() => {
       const currentBlocks = this.getAllTopBlocks_();
       const currentCount = currentBlocks.length;
-
-      if (currentCount !== this.lastBlockCount_) {
-        console.log('Stack labels: Block count changed from', this.lastBlockCount_, 'to', currentCount);
-        console.log('Stack labels: Detected blocks:', currentBlocks.map(b => ({id: b.id, type: b.type})));
-
-        // Update labels when block count changes
+      
+      // Check not just count but also if top blocks have changed
+      const currentBlockIds = currentBlocks.map(b => b.id).sort().join(',');
+      
+      if (currentCount !== this.lastBlockCount_ || currentBlockIds !== this.lastBlockIds_) {
+        console.log('Stack labels: Block structure changed from', this.lastBlockCount_, 'blocks to', currentCount, 'blocks');
+        console.log('Stack labels: Block IDs changed from', this.lastBlockIds_, 'to', currentBlockIds);
+        
+        // Update labels when block structure changes
         setTimeout(() => {
           this.updateAllStackLabels_();
         }, 100);
-
+        
         this.lastBlockCount_ = currentCount;
+        this.lastBlockIds_ = currentBlockIds;
       }
-    }, 500); // Check every 500ms
+    }, 150); // Check more frequently to catch keyboard connections
 
     console.log('Stack labels: Started fallback block detection');
   }
@@ -916,18 +920,22 @@ export class StackLabelManager {
         }
         break;
       case Blockly.Events.BLOCK_MOVE:
-        // Block moved, may need to update labels
+        // Block moved, always update labels as connections might affect stack structure
         console.log('Stack labels: Block moved event for', e.blockId, 'oldParent:', e.oldParentId, 'newParent:', e.newParentId);
-        if (e.oldParentId !== e.newParentId) {
-          // Parent connection changed
+        setTimeout(() => {
+          console.log('Stack labels: Processing BLOCK_MOVE - updating all labels');
+          this.removeOrphanedLabels_();
+          this.updateAllStackLabels_();
+        }, 100); // Increased delay to ensure connections are complete
+        break;
+      default:
+        // Catch any other events that might affect block connections (especially keyboard navigation)
+        if (e.type && (e.type.includes('CONNECT') || e.type.includes('DISCONNECT') || 
+                       e.type.includes('CONNECTION') || (e.blockId && !e.isUiEvent))) {
+          console.log('Stack labels: Other connection event detected:', e.type, 'for block:', e.blockId);
           setTimeout(() => {
-            // Aggressively clean up orphaned labels first, then update all labels
-            this.removeOrphanedLabels_();
             this.updateAllStackLabels_();
-          }, 50); // Increased delay for proper handling
-        } else {
-          // Just position update
-          setTimeout(() => this.updateLabelPositions_(), 10);
+          }, 150);
         }
         break;
     }
@@ -1128,12 +1136,55 @@ export class StackLabelManager {
         continue;
       }
 
-      // Get current label for this block, if any
-      let label = this.stackLabels_.get(block.id);
-      let letter;
-      console.log('Stack labels: Existing label for block', block.id, ':', label ? 'found' : 'none');
-
-      if (!label) {
+      // Check if this stack already has a label somewhere in the chain
+      let existingLetter = null;
+      let existingLabel = null;
+      let existingBlockId = null;
+      
+      // Walk down the stack to find if any block has a label
+      let currentBlock = block;
+      while (currentBlock) {
+        const blockLabel = this.stackLabels_.get(currentBlock.id);
+        const blockLetter = this.stackLetters_.get(currentBlock.id);
+        
+        if (blockLabel && blockLetter) {
+          existingLabel = blockLabel;
+          existingLetter = blockLetter;
+          existingBlockId = currentBlock.id;
+          console.log(`Stack labels: Found existing label "${blockLetter}" on block ${currentBlock.id} in stack`);
+          break;
+        }
+        
+        // Move to next block in stack
+        if (currentBlock.nextConnection && currentBlock.nextConnection.isConnected()) {
+          currentBlock = currentBlock.nextConnection.targetBlock();
+        } else {
+          break;
+        }
+      }
+      
+      let label, letter;
+      
+      if (existingLabel && existingLetter) {
+        // Stack already has a label, move it to the top block if needed
+        if (existingBlockId !== block.id) {
+          console.log(`Stack labels: Moving label "${existingLetter}" from block ${existingBlockId} to top block ${block.id}`);
+          
+          // Remove from old block
+          this.stackLabels_.delete(existingBlockId);
+          this.stackLetters_.delete(existingBlockId);
+          
+          // Move to new top block
+          this.stackLabels_.set(block.id, existingLabel);
+          this.stackLetters_.set(block.id, existingLetter);
+          
+          // Update label position
+          this.positionLabelAboveBlock_(existingLabel, block);
+        }
+        
+        label = existingLabel;
+        letter = existingLetter;
+      } else {
         // First check for a custom label
         letter = this.customLabels_.get(block.id);
 
@@ -1150,19 +1201,7 @@ export class StackLabelManager {
         // Store the label and letter
         this.stackLabels_.set(block.id, label);
         this.stackLetters_.set(block.id, letter);
-        this.usedLabels_.add(letter); // Make sure to track used letters
-      } else {
-        // Get existing letter
-        letter = this.stackLetters_.get(block.id);
-
-        // If no letter is found (shouldn't happen), generate a new one
-        if (!letter) {
-          letter = this.getNextAvailableLetter_();
-          this.stackLetters_.set(block.id, letter);
-        }
-
-        // Update position of existing label
-        this.positionLabelAboveBlock_(label, block);
+        this.usedLabels_.add(letter);
       }
 
       // Track used labels
