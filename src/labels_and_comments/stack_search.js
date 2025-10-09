@@ -198,13 +198,19 @@ export class StackSearchManager {
           // Get the block to ensure it still exists
           const block = this.workspace_.getBlockById(blockId);
           if (block) {
+            // Find the actual top block of this stack (in case blocks were added above)
+            let topBlock = block;
+            while (topBlock.previousConnection && topBlock.previousConnection.isConnected()) {
+              topBlock = topBlock.previousConnection.targetBlock();
+            }
+            
             // Get custom label if available (stored in stackLabelTexts_)
             const customText = stackLabelManager.stackLabelTexts_?.get(blockId) || '';
             const fullLabel = customText ? `${letter} ${customText}` : letter;
 
             stacks.push({
               letter: letter,
-              blockId: blockId,
+              blockId: topBlock.id, // Use the actual top block ID
               label: fullLabel
             });
           }
@@ -680,10 +686,15 @@ export class StackSearchManager {
     }
 
     // Get the target block
-    const targetBlock = this.workspace_.getBlockById(targetBlockId);
+    let targetBlock = this.workspace_.getBlockById(targetBlockId);
     if (!targetBlock) {
       this.speech?.update(`Stack ${letter} block not found`);
       return false;
+    }
+    
+    // Find the actual top block of this stack (in case blocks were added above)
+    while (targetBlock.previousConnection && targetBlock.previousConnection.isConnected()) {
+      targetBlock = targetBlock.previousConnection.targetBlock();
     }
 
     // Move cursor to the target block
@@ -694,8 +705,8 @@ export class StackSearchManager {
     }
 
     try {
-      console.log('Stack search: Successfully navigated to stack', letter, targetBlockId);
-      // Create an AST node for the block and move cursor to it
+      console.log('Stack search: Successfully navigated to stack', letter, 'actual top block:', targetBlock.id);
+      // Create an AST node for the WHOLE STACK and move cursor to it
       const astNode = Blockly.ASTNode.createStackNode(targetBlock);
       cursor.setCurNode(astNode);
 
@@ -705,7 +716,7 @@ export class StackSearchManager {
 
       // Announce successful navigation
       this.speech?.update(`Navigated to stack ${fullLabel}`);
-      console.log('Stack search log: Successfully navigated to stack', letter, targetBlockId);
+      console.log('Stack search log: Successfully navigated to stack', letter, 'top block:', targetBlock.id);
       return true;
     } catch (e) {
       console.warn('Stack search log: Error navigating to block', e);
@@ -745,6 +756,55 @@ export class StackSearchManager {
   }
 
   /**
+   * Get semantic block name for accessibility.
+   * @param {!Blockly.Block} block The block to get name for.
+   * @return {string} Human-readable block name.
+   * @private
+   */
+  getActualBlockName_(block) {
+    if (!block) return 'unknown block';
+    
+    try {
+      // Get visible text from block's fields
+      const allText = [];
+      if (block.inputList) {
+        block.inputList.forEach(input => {
+          if (input.fieldRow) {
+            input.fieldRow.forEach(field => {
+              if (field.constructor.name === 'FieldLabel' && field.text_) {
+                allText.push(field.text_);
+              }
+            });
+          }
+        });
+      }
+      
+      let blockName = allText.join(' ').trim();
+      
+      // If we got text, clean it up
+      if (blockName) {
+        blockName = blockName.toLowerCase();
+        return blockName.includes('block') ? blockName : blockName + ' block';
+      }
+      
+      // Fallback to common block names
+      const typeMap = {
+        'controls_if': 'if do block',
+        'controls_repeat_ext': 'repeat times block',
+        'logic_compare': 'comparison block',
+        'math_arithmetic': 'math block',
+        'text': 'text block',
+        'variables_get': 'variable block',
+        'variables_set': 'set variable block'
+      };
+      
+      return typeMap[block.type] || block.type.replace(/_/g, ' ') + ' block';
+    } catch (e) {
+      return block.type.replace(/_/g, ' ') + ' block';
+    }
+  }
+
+  /**
    * Update the block list for the currently selected stack.
    * @private
    */
@@ -760,14 +820,15 @@ export class StackSearchManager {
     // Get blocks for currently selected stack
     this.availableBlocks_ = this.getBlocksForCurrentStack_();
 
-    // Add block items - show just numbers
+    // Add block items - show number with block name
     console.log(`Stack search: Displaying ${this.availableBlocks_.length} blocks in right panel`);
     this.availableBlocks_.forEach((blockInfo, index) => {
       const blockItem = document.createElement('div');
       blockItem.className = 'blockly-stack-search-item block-result-item';
-      blockItem.textContent = blockInfo.number.toString(); // Just show the number
+      blockItem.textContent = `${blockInfo.number} ${blockInfo.description}`;
       blockItem.setAttribute('data-block-id', blockInfo.blockId);
       blockItem.setAttribute('data-block-number', blockInfo.number.toString());
+      blockItem.setAttribute('aria-label', `Block ${blockInfo.number}: ${blockInfo.description}`);
 
       console.log(`Stack search: Adding block item ${blockInfo.number} to display`);
 
@@ -809,14 +870,14 @@ export class StackSearchManager {
 
     // Walk through the stack and collect block information
     while (currentBlock) {
-      const blockText = currentBlock.type || 'Unknown Block';
+      const blockName = this.getActualBlockName_(currentBlock);
 
-      console.log(`Stack search: Found block ${blockNumber}: ${currentBlock.id} (${blockText})`);
+      console.log(`Stack search: Found block ${blockNumber}: ${currentBlock.id} (${blockName})`);
 
       blocks.push({
         number: blockNumber,
         blockId: currentBlock.id,
-        description: blockText
+        description: blockName
       });
 
       blockNumber++;
