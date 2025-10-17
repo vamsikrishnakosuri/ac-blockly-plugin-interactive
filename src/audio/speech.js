@@ -417,7 +417,7 @@ export class Speech {
         const dirstrt = (direction === Constants.SHORTCUT_NAMES.PREVIOUS)
             ? 'back'
             : '';
-        const phrase = `Move ${dirstrt} to item named ${label} under ${categoryName} category`;
+        const phrase = `Move ${dirstrt} to item ${label} under ${categoryName} category`;
         this.update(phrase);
     }
 

@@ -610,6 +610,8 @@ export class Navigation {
       this.warn(
           'Something went wrong while inserting a block from the flyout.',
       );
+      newBlock.dispose(false, /*animate=*/false);
+      return false;
     }
 
     this.focusWorkspace(workspace);
@@ -730,6 +732,13 @@ export class Navigation {
       const markerConnection = /** @type {!Blockly.RenderedConnection} */ (
           markerLoc
       );
+
+      if (!this.canAttachBlockToConnection(cursorBlock, markerConnection)) {
+        console.log('Selected block is not compatible with the marked connection.');
+        return false;
+      }
+
+
       if (markerLoc.isConnected() && markerLoc.type === Blockly.INPUT_VALUE) {
         const childConn = markerLoc.isSuperior()
             ? markerLoc.targetConnection          // child
@@ -1332,6 +1341,33 @@ export class Navigation {
       Blockly.Events.setGroup(false);
     }
   }
+
+
+  canAttachBlockToConnection(block, dest) {
+    if (!block || !dest) return false;
+    const checker = dest.getConnectionChecker?.();
+    const isCompatible = (moving) =>
+        !!moving &&
+        checker &&
+        checker.canConnectWithReason(moving, dest, /*isDragging=*/false) === Blockly.Connection.CAN_CONNECT;
+
+    switch (dest.type) {
+      case Blockly.PREVIOUS_STATEMENT: return isCompatible(block.nextConnection);
+      case Blockly.NEXT_STATEMENT:     return isCompatible(block.previousConnection);
+      case Blockly.INPUT_VALUE:        return isCompatible(block.outputConnection);
+      case Blockly.OUTPUT_VALUE: {
+        // Try any INPUT_VALUE on the block first, then fallback to its output.
+        for (const input of block.inputList) {
+          const c = input.connection;
+          if (c && c.type === Blockly.INPUT_VALUE && isCompatible(c)) return true;
+        }
+        block.setEnabled
+        return isCompatible(block.outputConnection);
+      }
+      default: return false;
+    }
+  }
+
 
 
   /**

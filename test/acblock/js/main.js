@@ -375,7 +375,6 @@ function generateCode() {
         case "xml":
             const xmlDom = Blockly.Xml.workspaceToDom(Blockly.getMainWorkspace());
             code = Blockly.Xml.domToPrettyText(xmlDom);
-            console.log("what: " + code);
             break;
         default:
             code = "// Select a language";
