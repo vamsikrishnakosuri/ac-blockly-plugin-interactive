@@ -1,29 +1,23 @@
-/**
- * @license
- * Copyright 2021 Google LLC
- * SPDX-License-Identifier: Apache-2.0
- */
-
-/**
- * @fileoverview Registers all of the keyboard shortcuts that are necessary for
- * navigating blockly using the keyboard.
- * @author aschmiedt@google.com (Abby Schmiedt)
- */
-
 import './gesture_monkey_patch';
 
 import * as Blockly from 'blockly/core';
-
 import * as Constants from './constants';
 import {Navigation} from './navigation';
 import {AccessibleCursor} from "./cursors/accessible_cursor";
 import {Speech} from "./audio/speech";
 import {initBlockNumbers, disposeBlockNumbers} from './labels_and_comments/block_numbers';
-import { initStackLabels, disposeStackLabels, getStackLabelManager, getStackLabelFromStackNode} from './labels_and_comments/stack_labels.js';
-import { initStackSearch, disposeStackSearch, getStackSearchManager } from './labels_and_comments/stack_search.js';
+import {
+  initStackLabels,
+  disposeStackLabels,
+  getStackLabelManager,
+  getStackLabelFromStackNode
+} from './labels_and_comments/stack_labels.js';
+import {initStackSearch, disposeStackSearch, getStackSearchManager} from './labels_and_comments/stack_search.js';
 import {ShortcutAssistance} from "./util/shortcut_assistance";
 import {NavigationalHint} from "./util/navigational_hint";
-import { ZoomingControl } from './util/zooming_controls';
+import {ZoomingControl} from './util/zooming_controls';
+import {FlyoutCompatibilityManager} from "./util/flyout_compatibility_manager"
+import {WorkspaceContainerFilter} from "./util/workspace_flyout_manager";
 
 /**
  * Class for registering shortcuts for keyboard navigation.
@@ -63,6 +57,8 @@ export class NavigationController {
     }
     this.keyHintListener = null;
     this.zooming = new ZoomingControl();
+    this.flyoutCompatibilityMgr = new FlyoutCompatibilityManager();
+    this.workspaceContainerFilter = new WorkspaceContainerFilter();
   }
 
   /**
@@ -331,6 +327,7 @@ export class NavigationController {
               const handled = toolbox.onShortcut(shortcut);
               if (handled) {
                 this.speech.announceCategory(toolbox.getSelectedItem(), Constants.SHORTCUT_NAMES.PREVIOUS);
+                this.applyToolboxFilter(workspace);
               }
               return handled;
             }
@@ -494,6 +491,7 @@ export class NavigationController {
               const handled = toolbox.onShortcut(shortcut);
               if (handled) {
                 this.speech.announceCategory(toolbox.getSelectedItem(), Constants.SHORTCUT_NAMES.NEXT);
+                this.applyToolboxFilter(workspace);
               }
               return handled;
             }
@@ -625,6 +623,7 @@ export class NavigationController {
             isHandled = false;
             if (!isHandled) {
               this.navigation.focusFlyout(workspace);
+              this.applyToolboxFilter(workspace);
             }
             return true;
           default:
@@ -763,7 +762,11 @@ export class NavigationController {
                   this.speech.update('Blocks can be inserted when Edit mode activated. Go back to workspace and press E to activate Edit mode');
                   return true;
                 }
-                this.navigation.insertFromFlyout(workspace);
+                const inserted = this.navigation.insertFromFlyout(workspace);
+                if (inserted && !inserted) {
+                  this.speech.update('The selected block is not compatible with the marked connection.');
+                  return true;
+                }
                 const newBlock = workspace.getCursor().getCurNode();
                 this.speech.announceInsertedBlock(newBlock, originalBlock, dirKey);
                 break;
@@ -921,6 +924,7 @@ export class NavigationController {
               this.navigation.focusToolbox(workspace);
               this.speech.announceCategory(workspace.getToolbox().getSelectedItem());
             }
+            this.applyToolboxFilter(workspace);
             return true;
           default:
             return false;
@@ -2400,5 +2404,19 @@ export class NavigationController {
     this.removeShortcutHandlers();
     this.navigation.dispose();
     this.shortcutAssistance?.dispose?.();
+  }
+
+  applyToolboxFilter(workspace) {
+    const cursor = workspace.getCursor?.();
+
+    if (cursor?.editMode) {
+      // EDIT MODE: filter by connection compatibility
+      this.workspaceContainerFilter.clearWorkspaceFilters(workspace);
+      this.flyoutCompatibilityMgr.applyFilter(workspace);
+      return;
+    }
+
+    // NAVIGATION MODE: only filter when the marker is on the WORKSPACE
+    this.workspaceContainerFilter.updateFilter(workspace);
   }
 }
