@@ -762,8 +762,14 @@ export class NavigationController {
                   this.speech.update('Blocks can be inserted when Edit mode activated. Go back to workspace and press E to activate Edit mode');
                   return true;
                 }
+                let flyoutBlock = this.navigation.getFlyoutCursor(workspace).getCurNode()?.getSourceBlock();
+                if (flyoutBlock.isEnabled && !flyoutBlock.isEnabled()) {
+                  const disabledBlockName = this.speech.friendlyName(flyoutBlock) || 'block';
+                  this.speech.update(`s${disabledBlockName} is disabled and cannot be inserted.`);
+                  return true;
+                }
                 const inserted = this.navigation.insertFromFlyout(workspace);
-                if (inserted && !inserted) {
+                if (!inserted) {
                   this.speech.update('The selected block is not compatible with the marked connection.');
                   return true;
                 }
@@ -800,6 +806,12 @@ export class NavigationController {
         );
       },
       callback: (workspace) => {
+        if (this.navigation.getState(workspace) === Constants.STATE.TOOLBOX) {
+          this.speech.update(
+              'Can not change edit mode while the toolbox is open. Press Esc to return.'
+          );
+          return true;
+        }
         const editMode = this.accessibleCursor.toggleEditMode();
         const curNode = this.accessibleCursor.getCurNode();
         this.navigation.removeMark?.(workspace);
