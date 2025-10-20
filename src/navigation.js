@@ -597,7 +597,7 @@ export class Navigation {
   insertFromFlyout(workspace) {
     const newBlock = this.createNewBlock(workspace);
     if (!newBlock) {
-      return;
+      return false;
     }
     const markerNode = this.getMarker(workspace).getCurNode();
     if (
@@ -622,6 +622,7 @@ export class Navigation {
     cursor?.suppressNextScroll();
     cursor?.setEditingBlock(blockNode);
     this.removeMark(workspace);
+    return true;
   }
 
   /**

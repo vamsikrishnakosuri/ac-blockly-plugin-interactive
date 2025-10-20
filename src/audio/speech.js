@@ -190,7 +190,7 @@ export class Speech {
             return self.blockToText(targetBlock);
         }
 
-        const disabledPrefix = blk.isEnabled && !blk.isEnabled() ? 'disabled ' : '';
+        const disabledPrefix = '';
         const type= blk.type;
 
         switch (type) {
@@ -378,6 +378,7 @@ export class Speech {
         }
 
         let label = '';
+        let disabledPrefix = '';
         switch (node.getType()) {
             case Blockly.ASTNode.types.BUTTON: {
                 const btn = node.getLocation();
@@ -387,6 +388,7 @@ export class Speech {
 
             default: {
                 const blockSvg = node.getSourceBlock();
+                disabledPrefix = blockSvg.isEnabled && !blockSvg.isEnabled() ? 'disabled ' : '';
                 label = this.blockToText(blockSvg);
                 // fallback
                 if (!label || label.toLowerCase().startsWith('custom')) {
@@ -417,7 +419,8 @@ export class Speech {
         const dirstrt = (direction === Constants.SHORTCUT_NAMES.PREVIOUS)
             ? 'back'
             : '';
-        const phrase = `Move ${dirstrt} to item ${label} under ${categoryName} category`;
+
+        const phrase = `Move ${dirstrt} to ${disabledPrefix} item ${label} under ${categoryName} category`;
         this.update(phrase);
     }
 
