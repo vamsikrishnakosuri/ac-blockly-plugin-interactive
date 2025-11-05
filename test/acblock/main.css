@@ -83,6 +83,7 @@ select, option, select:focus, option:hover {
     height: 32px;
     font-weight: 450;
     font-size: 1em;
+    transition: all 0.15s ease;
 }
 
 .run-button:hover {
@@ -91,13 +92,51 @@ select, option, select:focus, option:hover {
     box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
 }
 
+.run-button:active {
+    transform: scale(0.95);
+    background: #d2e3fc;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+}
+
+.shortcut-button {
+    border: 1px solid #dadce0;
+    border-radius: 4px;
+    box-sizing: border-box;
+    color: #1a73e8;
+    background: #fff;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font: 500 14px / 36px var(--font-family);
+    padding: 0 12px;
+    padding-top: 2px;
+    min-width: 80px;
+    height: 32px;
+    font-weight: 450;
+    font-size: 1em;
+    transition: all 0.15s ease;
+}
+
+.shortcut-button:hover {
+    background: #e8f0fe;
+    border: 1px solid #d2e3fc;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+}
+
+.shortcut-button:active {
+    transform: scale(0.95);
+    background: #d2e3fc;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+}
+
 /* Give specific buttons sensible minimums */
 #loadXmlButton {
     min-width: 145px;
 }
 
 #showShortcuts {
-    min-width: 140px;
+    min-width: 60px;
     min-height: 30px;
 }
 
@@ -115,59 +154,36 @@ select, option, select:focus, option:hover {
     border: 0;
 }
 
-/* Header row (Run + Program controls) */
+/* Header row (Run + Program dropdown + Shortcuts) */
 .exec-header {
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 10px;
     margin-bottom: 10px;
     flex-wrap: wrap;
     flex: 0 0 auto; /* header uses intrinsic size */
 }
 
-/* keep Run at left; controls area on the right (or next row) */
-.exec-header .program-controls {
+.exec-header #programSelect {
     margin-left: auto;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    flex-wrap: wrap;
-    min-width: 0; /* allow shrinking */
+    width: 280px;
+    max-width: 280px;
 }
 
-/* Responsive: put program controls on full-width next row for narrower screens */
-@media (max-width: 1600px) {
-    .exec-header .program-controls {
+/* Responsive adjustments */
+@media (max-width: 600px) {
+    .exec-header {
+        gap: 8px;
+    }
+
+    .exec-header #programSelect {
+        flex: 1 0 100%;
         order: 1;
-        flex: 1 0 100%;
-        width: 100%;
-        margin-left: 0;
-        gap: 10px;
-        min-width: 0;
     }
 
-    .program-controls .program-dropdown {
-        flex: 0 1 auto;
-        min-width: 220px;
-    }
-
-    .program-controls .run-button {
+    .exec-header #showShortcuts {
+        order: 2;
         margin-left: auto;
-        flex: 0 0 auto;
-        width: 150px;
-    }
-}
-
-@media (max-width: 420px) {
-    .exec-header .program-controls {
-        flex-wrap: wrap;
-    }
-
-    .program-controls .program-dropdown,
-    .program-controls .run-button {
-        flex: 1 0 100%;
-        width: 100%;
-        margin-left: 0;
     }
 }
 

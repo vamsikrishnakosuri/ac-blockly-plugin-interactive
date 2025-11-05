@@ -1,4 +1,99 @@
+// list block program xml
+const PROGRAMS = [
+    { "id": "Task1", "label": "Program 1", "file": "xml/tasks/task-1.xml" },
+    { "id": "Task2", "label": "Program 2 (Incomplete)",   "file": "xml/tasks/task-2.xml" },
+    { "id": "Task2Comp", "label": "Program 2 (Complete)",    "file": "xml/tasks/task-2-complete.xml" },
+    { "id": "Test1", "label": "Test 1",    "file": "xml/tests/test1.xml" },
+    { "id": "Test2", "label": "Test 2",    "file": "xml/tests/test2.xml" },
+];
+
+function populateProgramsToDom() {
+    const select = document.getElementById('programSelect');
+    select.innerHTML = '<option value="Default">None — select a program…</option>';
+    PROGRAMS.forEach(p => {
+        const opt = document.createElement('option');
+        opt.value = p.id;
+        opt.textContent = p.label;
+        select.appendChild(opt);
+    });
+}
+
+
+
+function getProgramIdFromQuery() {
+    const params = new URLSearchParams(window.location.search);
+    const v = params.get('programId');
+    return v ? v.trim() : null;
+}
+
+function findProgramById(id) {
+    const target = String(id).toLowerCase();
+    return PROGRAMS.find(p => p.id.toLowerCase() === target);
+}
+
+async function fetchProgramXmlById(id) {
+    const entry = PROGRAMS.find(p => p.id === id);
+    if (!entry) throw new Error('Program not found');
+    const res = await fetch(entry.file, { cache: 'no-store' });
+    if (!res.ok) throw new Error(res.statusText);
+    return await res.text();
+}
+
+// TODO: this will perform automitically when query parameter or program selection changes
+function loadXmlToWorkspace(workspace, xmlString) {
+    try {
+        const textToDom = (Blockly.Xml.textToDom || Blockly.utils.xml.textToDom);
+        const xml = textToDom(xmlString);
+        Blockly.Xml.clearWorkspaceAndLoadFromXml(xml.documentElement || xml, workspace);
+        requestAnimationFrame(() => {
+            if (typeof workspace.scrollCenter === 'function') workspace.scrollCenter();
+            if (typeof Blockly.svgResize === 'function') Blockly.svgResize(workspace);
+        });
+    } catch (e) {
+        alert("Invalid XML format.");
+        console.error(e);
+    }
+}
+
+async function loadSelectedProgramIntoWorkspace(workspace) {
+    const select = document.getElementById('programSelect');
+    const id = select.value;
+    if (!id) {
+        alert('Pick a program first.');
+        return;
+    }
+    try {
+        const xml = await fetchProgramXmlById(id);
+        loadXmlToWorkspace(workspace, xml);
+    } catch (e) {
+        console.error(e);
+        alert('Could not load XML file.');
+    }
+}
+
+async function autoLoadProgramFromQuery(workspace) {
+    const programId = getProgramIdFromQuery();
+    if (!programId) {
+        return;
+    }
+
+    const match = findProgramById(programId);
+    if (!match) {
+        console.warn(`No program found for id "${programId}".`);
+        return;
+    }
+
+    const select = document.getElementById('programSelect');
+    select.value = match.id;
+
+    // Trigger the change event to load the program
+    const changeEvent = new Event('change', { bubbles: true });
+    select.dispatchEvent(changeEvent);
+}
+
 function initWorkspace() {
+    // load program as html select items
+    populateProgramsToDom();
 
     // Override the text_print block to use console.log instead of alert
     javascript.javascriptGenerator.forBlock['text_print'] = function(block, generator) {
@@ -50,9 +145,34 @@ function initWorkspace() {
     });
 
     document.getElementById("languageSelect").addEventListener("change", generateCode);
+
+    // Auto-load program when selection changes
+    document.getElementById("programSelect").addEventListener("change", async () => {
+        const select = document.getElementById("programSelect");
+        const selectedId = select.value;
+
+        if (!selectedId || selectedId === "Default") {
+            // Clear workspace if no program selected
+            workspace.clear();
+            return;
+        }
+
+        try {
+            const xml = await fetchProgramXmlById(selectedId);
+            loadXmlToWorkspace(workspace, xml);
+        } catch (e) {
+            console.error(e);
+            alert('Could not load the selected program.');
+        }
+    });
+
     document.getElementById("showShortcuts")?.addEventListener("click", () => {
         nav?.showShortcuts();
     });
+
+    // auto select & load program if query param is provided
+    autoLoadProgramFromQuery(workspace);
+    // renderKeyboardHints(null);
 }
 
 function generateCode() {

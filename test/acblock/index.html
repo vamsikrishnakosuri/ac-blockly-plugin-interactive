@@ -42,10 +42,18 @@
              aria-atomic="true"
              role="status"></div>
         <div class="execution-panel">
-            <!-- Header row: Run + program picker -->
+            <!-- Header row: Run + program picker + shortcuts -->
             <div class="exec-header" role="group">
                 <button id="runButton" class="run-button" data-run>
                     Run <i class="fas fa-play-circle"></i>
+                </button>
+                <label class="sr-only" for="programSelect">Choose a program</label>
+                <select id="programSelect" class="program-dropdown">
+                    <option value="">None — select a program…</option>
+                    <!-- options filled on events -->
+                </select>
+                <button id="showShortcuts" class="shortcut-button" title="Show keyboard shortcuts" aria-label="Show keyboard shortcuts">
+                    <i class="fas fa-keyboard"></i>
                 </button>
             </div>
 
