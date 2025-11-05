@@ -2654,6 +2654,9 @@ export class NavigationController {
   applyToolboxFilter(workspace) {
     const cursor = workspace.getCursor?.();
 
+    // Hide marker visual when flyout is open (both edit and navigation mode)
+    this.hideMarker(workspace);
+
     if (cursor?.editMode) {
       // EDIT MODE: filter by connection compatibility
       this.workspaceContainerFilter.clearWorkspaceFilters(workspace);
@@ -2663,6 +2666,16 @@ export class NavigationController {
 
     // NAVIGATION MODE: only filter when the marker is on the WORKSPACE
     this.workspaceContainerFilter.updateFilter(workspace);
+  }
+
+  /**
+   * Hides the marker visual element (blue rectangle) when flyout is open
+   * @param {!Blockly.WorkspaceSvg} workspace The workspace
+   * @protected
+   */
+  hideMarker(workspace) {
+    const marker = this.navigation?.getMarker(workspace);
+    marker?.hide();
   }
 
   /**
