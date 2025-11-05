@@ -35,68 +35,69 @@ export class StackSearchManager {
    * Constructor for the StackSearchManager.
    * @param {!Blockly.WorkspaceSvg} workspace The workspace to manage stack search for.
    */
-  constructor(workspace) {
+  constructor(workspace, speech) {
     /**
      * The workspace this manager is associated with.
      * @type {!Blockly.WorkspaceSvg}
      * @private
      */
     this.workspace_ = workspace;
-    
+
     // Register this instance in the global registry
     if (workspace && workspace.id) {
       stackSearchManagerRegistry.set(workspace.id, this);
     }
-    
+
+    this.speech = speech;
     /**
      * Whether the manager is currently enabled.
      * @type {boolean}
      * @private
      */
     this.enabled_ = false;
-    
+
     /**
      * The currently active search overlay, if any.
      * @type {HTMLElement|null}
      * @private
      */
     this.activeOverlay_ = null;
-    
+
     /**
      * Whether search mode is currently active.
      * @type {boolean}
      * @private
      */
     this.searchActive_ = false;
-    
+
     /**
      * Current search query text.
      * @type {string}
      * @private
      */
     this.searchQuery_ = '';
-    
+
     /**
      * Current active panel: 'stacks' or 'blocks'
      * @type {string}
      * @private
      */
     this.activePanel_ = 'stacks';
-    
+
     /**
      * Current selection index in blocks panel.
      * @type {number}
      * @private
      */
     this.blockSelectionIndex_ = 0;
-    
+
     /**
      * Available blocks for currently selected stack.
      * @type {!Array<{number: number, blockId: string, description: string}>}
      * @private
      */
     this.availableBlocks_ = [];
-    
+
     /**
      * Bound event handlers for cleanup.
      * @type {!Array<function()>}
@@ -104,17 +105,47 @@ export class StackSearchManager {
      */
     this.boundEventHandlers_ = [];
   }
-  
+
   /**
    * Initialize the stack search manager.
    */
   init() {
     if (this.enabled_) return;
-    
+
     this.enabled_ = true;
     console.log('Stack search: Initialized for workspace', this.workspace_.id);
   }
-  
+
+  findStackByLetter(workspace, letter) {
+    if (!workspace || !letter) return null;
+
+    const stackLabelManager = getStackLabelManager(workspace);
+    if (!stackLabelManager) return null;
+
+    const L = String(letter).toUpperCase();
+
+    // Current implementation relies on stackLetters_ Map<blockId, letter>
+    if (!stackLabelManager.stackLetters_) return null;
+
+    let targetBlockId = null;
+    for (const [blockId, stackLetter] of stackLabelManager.stackLetters_.entries()) {
+      if (String(stackLetter).toUpperCase() === L) {
+        targetBlockId = blockId;
+        break;
+      }
+    }
+
+    if (!targetBlockId) return null;
+
+    const block = workspace.getBlockById(targetBlockId);
+    if (!block) return null;
+
+    const customText = stackLabelManager.customLabels_?.get(targetBlockId) || '';
+    const label = customText ? `${L} with custom label ${customText}` : L;
+
+    return { block, blockId: targetBlockId, letter: L, customText, label };
+  }
+
   /**
    * Handle the stack search shortcut activation.
    * @param {!Blockly.WorkspaceSvg} workspace The workspace to search in.
@@ -122,42 +153,35 @@ export class StackSearchManager {
    */
   handleStackSearchShortcut_(workspace) {
     console.log('Stack search: Shortcut activated');
-    
+
     if (!workspace) return false;
-    
-    // Check if we're in keyboard accessibility mode
-    if (!workspace.keyboardAccessibilityMode) {
-      console.log('Stack search: Keyboard accessibility mode not enabled');
-      return false;
-    }
-    
+
     // If search is already active, cancel it
     if (this.searchActive_) {
       this.cancelSearch_();
       return true;
     }
-    
+
     // Get available stacks from stack label manager
     const stackLabelManager = getStackLabelManager(workspace);
     if (!stackLabelManager) {
       console.log('Stack search: No stack label manager found');
       return false;
     }
-    
+
     // Get all available stack letters
     const availableStacks = this.getAvailableStacks_(stackLabelManager);
-    
+
     if (availableStacks.length === 0) {
-      console.log('Stack search: No labeled stacks found');
-      this.announceMessage_('No labeled stacks available to search');
+      this.speech?.update('No labeled stacks available to search');
       return false;
     }
-    
+
     // Start search mode
     this.startSearchMode_(availableStacks);
     return true;
   }
-  
+
   /**
    * Get all available stack letters from the stack label manager.
    * @param {!StackLabelManager} stackLabelManager The stack label manager.
@@ -166,7 +190,7 @@ export class StackSearchManager {
    */
   getAvailableStacks_(stackLabelManager) {
     const stacks = [];
-    
+
     try {
       // Access the internal stackLetters_ map to get all labeled stacks
       if (stackLabelManager.stackLetters_) {
@@ -183,7 +207,7 @@ export class StackSearchManager {
             // Get custom label if available (stored in stackLabelTexts_)
             const customText = stackLabelManager.stackLabelTexts_?.get(blockId) || '';
             const fullLabel = customText ? `${letter} ${customText}` : letter;
-            
+
             stacks.push({
               letter: letter,
               blockId: topBlock.id, // Use the actual top block ID
@@ -195,13 +219,13 @@ export class StackSearchManager {
     } catch (e) {
       console.warn('Stack search: Error getting available stacks', e);
     }
-    
+
     // Sort by letter for consistent ordering
     stacks.sort((a, b) => a.letter.localeCompare(b.letter));
-    
+
     return stacks;
   }
-  
+
   /**
    * Start search mode and show available stacks.
    * @param {!Array<{letter: string, blockId: string, label: string}>} availableStacks Available stacks.
@@ -209,18 +233,18 @@ export class StackSearchManager {
    */
   startSearchMode_(availableStacks) {
     this.searchActive_ = true;
-    
+
     // Create search overlay
     this.createSearchOverlay_(availableStacks);
-    
+
     // Bind keyboard handlers for search
     this.bindSearchKeyHandlers_();
-    
+
     // Announce to screen readers
     const stackList = availableStacks.map(s => s.label).join(', ');
-    this.announceMessage_(`Stack search active. Available stacks: ${stackList}. Press a letter to navigate, or Escape to cancel.`);
+    this.speech?.update(`Stack search active. Available stacks: ${stackList}. Press a letter to navigate, or Escape to cancel.`);
   }
-  
+
   /**
    * Create and show the search overlay.
    * @param {!Array<{letter: string, blockId: string, label: string}>} availableStacks Available stacks.
@@ -229,7 +253,7 @@ export class StackSearchManager {
   createSearchOverlay_(availableStacks) {
     // Remove any existing overlay
     this.removeSearchOverlay_();
-    
+
     // Store available stacks and initialize selection
     this.allAvailableStacks_ = availableStacks;
     this.availableStacks_ = availableStacks;
@@ -237,75 +261,77 @@ export class StackSearchManager {
     this.blockSelectionIndex_ = 0;
     this.activePanel_ = 'stacks';
     this.searchQuery_ = '';
-    
+
     // Create overlay element
     const overlay = document.createElement('div');
     overlay.className = 'blockly-stack-search-overlay';
     overlay.setAttribute('role', 'dialog');
     overlay.setAttribute('aria-label', 'Stack Search');
     overlay.setAttribute('aria-live', 'polite');
-    
+
     // Create content
     const content = document.createElement('div');
     content.className = 'blockly-stack-search-content';
-    
+
     const title = document.createElement('div');
     title.className = 'blockly-stack-search-title';
-    title.textContent = 'Navigate to Stack or Block';
-    
+    title.textContent = 'Navigate to Stack';
+
     const instructions = document.createElement('div');
     instructions.className = 'blockly-stack-search-instructions';
+      instructions.textContent = 'Use W/S to navigate, A/D to switch panels, Enter to select:';
+
     instructions.textContent = 'Use W/S to navigate, A/D to switch panels, Enter to select:';
-    
+
     // Create search input
     const searchInputContainer = document.createElement('div');
     searchInputContainer.className = 'blockly-stack-search-input-container';
-    
+
     const searchInput = document.createElement('input');
     searchInput.type = 'text';
     searchInput.placeholder = 'Search stacks... (e.g., "App" for "B Apple")';
     searchInput.className = 'blockly-stack-search-input';
     searchInput.setAttribute('aria-label', 'Search stacks by name');
     searchInputContainer.appendChild(searchInput);
-    
+
     // Create dual-panel container
     const panelContainer = document.createElement('div');
     panelContainer.className = 'blockly-stack-search-panels';
-    
+
     // Left panel - Stack list
     const stackPanel = document.createElement('div');
     stackPanel.className = 'blockly-stack-search-panel stack-panel active';
-    
+
     const stackPanelTitle = document.createElement('div');
     stackPanelTitle.className = 'panel-title';
     stackPanelTitle.textContent = 'Stacks';
     stackPanel.appendChild(stackPanelTitle);
-    
+
     const stackList = document.createElement('div');
     stackList.className = 'blockly-stack-search-list stack-results';
-    
+
     // Right panel - Block list
     const blockPanel = document.createElement('div');
     blockPanel.className = 'blockly-stack-search-panel block-panel';
-    
+
     const blockPanelTitle = document.createElement('div');
     blockPanelTitle.className = 'panel-title';
     blockPanelTitle.textContent = 'Blocks';
     blockPanel.appendChild(blockPanelTitle);
-    
+
     const blockList = document.createElement('div');
     blockList.className = 'blockly-stack-search-list block-results';
-    
+
     blockPanel.appendChild(blockList);
     stackPanel.appendChild(stackList);
-    
+
     panelContainer.appendChild(stackPanel);
     panelContainer.appendChild(blockPanel);
-    
+
     const cancelInstructions = document.createElement('div');
     cancelInstructions.className = 'blockly-stack-search-cancel';
     cancelInstructions.textContent = 'Press Escape to cancel';
-    
+
     // Add live region for screen reader announcements
     const liveRegion = document.createElement('div');
     liveRegion.setAttribute('aria-live', 'assertive');
@@ -315,7 +341,7 @@ export class StackSearchManager {
     liveRegion.style.width = '1px';
     liveRegion.style.height = '1px';
     liveRegion.style.overflow = 'hidden';
-    
+
     content.appendChild(title);
     content.appendChild(instructions);
     content.appendChild(searchInputContainer);
@@ -323,12 +349,12 @@ export class StackSearchManager {
     content.appendChild(cancelInstructions);
     content.appendChild(liveRegion);
     overlay.appendChild(content);
-    
+
     // Set up search input event listener
     searchInput.addEventListener('input', (e) => {
       this.handleSearchInput_(e.target.value);
     });
-    
+
     // Add keydown listener to search input for W/S navigation
     searchInput.addEventListener('keydown', (e) => {
       // Allow W/S navigation even while typing in search box
@@ -337,21 +363,21 @@ export class StackSearchManager {
         return;
       }
     });
-    
+
     // Add to document
     document.body.appendChild(overlay);
     this.activeOverlay_ = overlay;
-    
+
     // Initialize the display
     this.updateStackList_();
     this.updateBlockList_();
-    
+
     // Don't auto-focus search input - let users choose navigation method
     // Focus the overlay for accessibility, but allow W/S navigation by default
     overlay.focus();
     overlay.setAttribute('tabindex', '0');
   }
-  
+
   /**
    * Bind keyboard event handlers for search mode.
    * @private
@@ -359,12 +385,12 @@ export class StackSearchManager {
   bindSearchKeyHandlers_() {
     const keyHandler = (event) => {
       if (!this.searchActive_) return;
-      
+
       const key = event.key.toUpperCase();
-      
+
       // Check if user is actively typing in the search input
       const isTypingInInput = event.target && event.target.classList.contains('blockly-stack-search-input');
-      
+
       // Handle Escape to cancel search (works from anywhere)
       if (event.key === 'Escape') {
         event.preventDefault();
@@ -372,7 +398,7 @@ export class StackSearchManager {
         this.cancelSearch_();
         return;
       }
-      
+
       // Handle Tab key to move to search input when not already there
       if (event.key === 'Tab' && !isTypingInInput) {
         event.preventDefault();
@@ -384,7 +410,7 @@ export class StackSearchManager {
         }
         return;
       }
-      
+
       // Handle W key (up navigation) - works even when typing in search input
       if (key === 'W') {
         event.preventDefault();
@@ -392,15 +418,15 @@ export class StackSearchManager {
         this.moveSelection_(-1);
         return;
       }
-      
-      // Handle S key (down navigation) - works even when typing in search input  
+
+      // Handle S key (down navigation) - works even when typing in search input
       if (key === 'S') {
         event.preventDefault();
         event.stopPropagation();
         this.moveSelection_(1);
         return;
       }
-      
+
       // Handle A key (switch to left panel - stacks) - only when not typing and not on stacks already
       if (key === 'A' && !isTypingInInput && this.activePanel_ === 'blocks') {
         event.preventDefault();
@@ -408,7 +434,7 @@ export class StackSearchManager {
         this.switchToPanel_('stacks');
         return;
       }
-      
+
       // Handle D key (switch to right panel - blocks) - only when not typing and on stacks panel
       if (key === 'D' && !isTypingInInput && this.activePanel_ === 'stacks') {
         event.preventDefault();
@@ -416,7 +442,7 @@ export class StackSearchManager {
         this.switchToPanel_('blocks');
         return;
       }
-      
+
       // Handle Enter key (select current stack or block)
       if (event.key === 'Enter') {
         event.preventDefault();
@@ -424,12 +450,12 @@ export class StackSearchManager {
         this.selectCurrentItem_();
         return;
       }
-      
+
       // Handle single letter keys for direct navigation (A-Z) - only when not typing in input
       if (key.length === 1 && key >= 'A' && key <= 'Z' && !isTypingInInput) {
         event.preventDefault();
         event.stopPropagation();
-        
+
         // Try to navigate directly to the stack with this letter
         if (this.navigateToStack_(key)) {
           this.cancelSearch_();
@@ -438,10 +464,10 @@ export class StackSearchManager {
         }
         return;
       }
-      
+
       // If user starts typing other characters (not W/S/Enter/Tab) and not in search input,
       // auto-focus the search input to enable search mode
-      if (!isTypingInInput && key.length === 1 && 
+      if (!isTypingInInput && key.length === 1 &&
           key !== 'W' && key !== 'S' && event.key !== 'Enter' && event.key !== 'Tab' && event.key !== 'Escape') {
         const searchInput = this.activeOverlay_?.querySelector('.blockly-stack-search-input');
         if (searchInput) {
@@ -455,14 +481,14 @@ export class StackSearchManager {
         return;
       }
     };
-    
+
     // Bind to document to catch all key events
     document.addEventListener('keydown', keyHandler, true);
     this.boundEventHandlers_.push(() => {
       document.removeEventListener('keydown', keyHandler, true);
     });
   }
-  
+
   /**
    * Switch to a specific panel (stacks or blocks).
    * @param {string} panelType Either 'stacks' or 'blocks'.
@@ -470,14 +496,14 @@ export class StackSearchManager {
    */
   switchToPanel_(panelType) {
     if (!this.activeOverlay_) return;
-    
+
     // Update active panel
     this.activePanel_ = panelType;
-    
+
     // Update visual indicators
     const stackPanel = this.activeOverlay_.querySelector('.stack-panel');
     const blockPanel = this.activeOverlay_.querySelector('.block-panel');
-    
+
     if (panelType === 'stacks') {
       stackPanel?.classList.add('active');
       blockPanel?.classList.remove('active');
@@ -493,11 +519,11 @@ export class StackSearchManager {
       }
       this.announceMessage_(`Block panel selected. ${this.availableBlocks_.length} blocks available. Use W/S to navigate, A to go back to stacks.`);
     }
-    
+
     // Update selection highlight
     this.updateSelectionHighlight_();
   }
-  
+
   /**
    * Move selection up or down in the current panel.
    * @param {number} direction -1 for up, 1 for down
@@ -505,18 +531,18 @@ export class StackSearchManager {
    */
   moveSelection_(direction) {
     if (!this.activeOverlay_) return;
-    
+
     if (this.activePanel_ === 'stacks') {
       // Navigate in stacks panel
       const newIndex = Math.max(0, Math.min(this.availableStacks_.length - 1, this.currentSelectionIndex_ + direction));
-      
+
       if (newIndex !== this.currentSelectionIndex_) {
         this.currentSelectionIndex_ = newIndex;
         this.updateSelectionHighlight_();
-        
+
         // Update blocks panel for newly selected stack
         this.updateBlockList_();
-        
+
         // Announce selection
         const selectedStack = this.availableStacks_[newIndex];
         if (selectedStack) {
@@ -526,11 +552,11 @@ export class StackSearchManager {
     } else {
       // Navigate in blocks panel
       const newIndex = Math.max(0, Math.min(this.availableBlocks_.length - 1, this.blockSelectionIndex_ + direction));
-      
+
       if (newIndex !== this.blockSelectionIndex_) {
         this.blockSelectionIndex_ = newIndex;
         this.updateSelectionHighlight_();
-        
+
         // Announce selection
         const selectedBlock = this.availableBlocks_[newIndex];
         if (selectedBlock) {
@@ -539,7 +565,7 @@ export class StackSearchManager {
       }
     }
   }
-  
+
   /**
    * Select the currently highlighted item (stack or block).
    * @private
@@ -553,7 +579,7 @@ export class StackSearchManager {
       this.selectCurrentBlock_();
     }
   }
-  
+
   /**
    * Select the currently highlighted stack.
    * @private
@@ -562,17 +588,17 @@ export class StackSearchManager {
     if (!this.availableStacks_ || this.currentSelectionIndex_ < 0 || this.currentSelectionIndex_ >= this.availableStacks_.length) {
       return;
     }
-    
+
     const selectedStack = this.availableStacks_[this.currentSelectionIndex_];
     const stackLetter = selectedStack.letter;
-    
+
     if (stackLetter) {
       if (this.navigateToStack_(stackLetter)) {
         this.cancelSearch_();
       }
     }
   }
-  
+
   /**
    * Select the currently highlighted block.
    * @private
@@ -581,14 +607,14 @@ export class StackSearchManager {
     if (!this.availableBlocks_ || this.blockSelectionIndex_ < 0 || this.blockSelectionIndex_ >= this.availableBlocks_.length) {
       return;
     }
-    
+
     const selectedBlock = this.availableBlocks_[this.blockSelectionIndex_];
-    
+
     if (this.navigateToBlock_(selectedBlock.blockId)) {
       this.cancelSearch_();
     }
   }
-  
+
   /**
    * Navigate to a specific block by its ID.
    * @param {string} blockId The ID of the block to navigate to.
@@ -602,26 +628,26 @@ export class StackSearchManager {
       this.announceMessage_('Block not found');
       return false;
     }
-    
+
     // Move cursor to the target block
     const cursor = this.workspace_.getCursor();
     if (!cursor) {
       this.announceMessage_('Workspace cursor not available');
       return false;
     }
-    
+
     try {
       // Create an AST node for the block and move cursor to it
       const astNode = Blockly.ASTNode.createBlockNode(targetBlock);
       cursor.setCurNode(astNode);
-      
+
       // Get block description for announcement
-      const blockText = typeof targetBlock.toString === 'function' ? 
+      const blockText = typeof targetBlock.toString === 'function' ?
           targetBlock.toString(undefined, ' ').trim() : 'Block';
-      
+
       // Announce successful navigation
       this.announceMessage_(`Navigated to block: ${blockText}`);
-      
+
       return true;
     } catch (e) {
       console.warn('Stack search: Error navigating to block', e);
@@ -629,20 +655,20 @@ export class StackSearchManager {
       return false;
     }
   }
-  
+
   /**
    * Navigate to a specific stack by its letter.
    * @param {string} letter The stack letter to navigate to.
    * @return {boolean} True if navigation was successful.
    * @private
    */
-  navigateToStack_(letter) {
+  navigateToStack_(letter, speech) {
     const stackLabelManager = getStackLabelManager(this.workspace_);
     if (!stackLabelManager) {
-      this.announceMessage_('Stack label manager not available');
+      this.speech?.update('Stack label manager not available');
       return false;
     }
-    
+
     // Find the block with this letter
     let targetBlockId = null;
     if (stackLabelManager.stackLetters_) {
@@ -653,59 +679,65 @@ export class StackSearchManager {
         }
       }
     }
-    
+
     if (!targetBlockId) {
-      this.announceMessage_(`No stack found with letter ${letter}`);
+      this.speech?.(`No stack found with letter ${letter}`);
       return false;
     }
-    
+
     // Get the target block
-    const targetBlock = this.workspace_.getBlockById(targetBlockId);
+    let targetBlock = this.workspace_.getBlockById(targetBlockId);
     if (!targetBlock) {
-      this.announceMessage_(`Stack ${letter} block not found`);
+      this.speech?.update(`Stack ${letter} block not found`);
       return false;
     }
     
+    // Find the actual top block of this stack (in case blocks were added above)
+    while (targetBlock.previousConnection && targetBlock.previousConnection.isConnected()) {
+      targetBlock = targetBlock.previousConnection.targetBlock();
+    }
+
     // Move cursor to the target block
     const cursor = this.workspace_.getCursor();
     if (!cursor) {
       this.announceMessage_('Workspace cursor not available');
       return false;
     }
-    
+
     try {
+      console.log('Stack search: Successfully navigated to stack', letter, 'actual top block:', targetBlock.id);
       // Create an AST node for the WHOLE STACK and move cursor to it
       const astNode = Blockly.ASTNode.createStackNode(targetBlock);
       cursor.setCurNode(astNode);
-      
+
       // Get label for announcement
       const customText = stackLabelManager.customLabels_?.get(targetBlockId) || '';
       const fullLabel = customText ? `${letter} ${customText}` : letter;
-      
+
       // Announce successful navigation
-      this.announceMessage_(`Navigated to stack ${fullLabel}`);
-      console.log('Stack search: Successfully navigated to stack', letter, targetBlockId);
+      this.speech?.update(`Navigated to stack ${fullLabel}`);
+      console.log('Stack search log: Successfully navigated to stack', letter, 'top block:', targetBlock.id);
       return true;
     } catch (e) {
-      console.warn('Stack search: Error navigating to block', e);
+      console.warn('Stack search log: Error navigating to block', e);
       this.announceMessage_(`Error navigating to stack ${letter}`);
       return false;
     }
   }
-  
+
   /**
    * Update the stack list display with current filtered results.
    * @private
    */
   updateStackList_() {
     if (!this.activeOverlay_) return;
-    
+
     const stackList = this.activeOverlay_.querySelector('.stack-results');
     if (!stackList) return;
-    
+
     // Clear existing items
     stackList.innerHTML = '';
-    
+
     // Add filtered stacks
     this.availableStacks_.forEach((stack, index) => {
       const stackItem = document.createElement('div');
@@ -713,18 +745,18 @@ export class StackSearchManager {
       stackItem.textContent = `${stack.letter} - ${stack.label}`;
       stackItem.setAttribute('data-stack-id', stack.blockId);
       stackItem.setAttribute('data-stack-letter', stack.letter);
-      
+
       // Highlight selected item
       if (index === this.currentSelectionIndex_ && this.activePanel_ === 'stacks') {
         stackItem.classList.add('selected');
       }
-      
+
       stackList.appendChild(stackItem);
     });
   }
-  
+
   /**
-   * Get actual block display name for accessibility.
+   * Get semantic block name for accessibility.
    * @param {!Blockly.Block} block The block to get name for.
    * @return {string} Human-readable block name.
    * @private
@@ -733,9 +765,7 @@ export class StackSearchManager {
     if (!block) return 'unknown block';
     
     try {
-      let blockName = '';
-      
-      // Get all visible text from the block's fields
+      // Get visible text from block's fields
       const allText = [];
       if (block.inputList) {
         block.inputList.forEach(input => {
@@ -749,23 +779,18 @@ export class StackSearchManager {
         });
       }
       
-      // Join all text and clean it up
-      blockName = allText.join(' ').trim();
+      let blockName = allText.join(' ').trim();
       
-      // If we got text, use it; otherwise fallback
+      // If we got text, clean it up
       if (blockName) {
-        // Clean up the text and add "block" if needed
         blockName = blockName.toLowerCase();
-        if (!blockName.includes('block')) {
-          blockName += ' block';
-        }
-        return blockName;
+        return blockName.includes('block') ? blockName : blockName + ' block';
       }
       
-      // Fallback to simple type mapping for common blocks
-      const simpleNames = {
+      // Fallback to common block names
+      const typeMap = {
         'controls_if': 'if do block',
-        'controls_repeat_ext': 'repeat times block', 
+        'controls_repeat_ext': 'repeat times block',
         'logic_compare': 'comparison block',
         'math_arithmetic': 'math block',
         'text': 'text block',
@@ -773,10 +798,8 @@ export class StackSearchManager {
         'variables_set': 'set variable block'
       };
       
-      return simpleNames[block.type] || block.type.replace(/_/g, ' ') + ' block';
-      
+      return typeMap[block.type] || block.type.replace(/_/g, ' ') + ' block';
     } catch (e) {
-      console.warn('Error getting block name:', e);
       return block.type.replace(/_/g, ' ') + ' block';
     }
   }
@@ -787,40 +810,38 @@ export class StackSearchManager {
    */
   updateBlockList_() {
     if (!this.activeOverlay_) return;
-    
+
     const blockList = this.activeOverlay_.querySelector('.block-results');
     if (!blockList) return;
-    
+
     // Clear existing items
     blockList.innerHTML = '';
-    
+
     // Get blocks for currently selected stack
     this.availableBlocks_ = this.getBlocksForCurrentStack_();
-    
-    // Add block items - show numbers with semantic block names
+
+    // Add block items - show number with block name
     console.log(`Stack search: Displaying ${this.availableBlocks_.length} blocks in right panel`);
     this.availableBlocks_.forEach((blockInfo, index) => {
       const blockItem = document.createElement('div');
       blockItem.className = 'blockly-stack-search-item block-result-item';
-      
-      // Show number with actual block name for accessibility
       blockItem.textContent = `${blockInfo.number} ${blockInfo.description}`;
       blockItem.setAttribute('data-block-id', blockInfo.blockId);
       blockItem.setAttribute('data-block-number', blockInfo.number.toString());
       blockItem.setAttribute('aria-label', `Block ${blockInfo.number}: ${blockInfo.description}`);
-      
+
       console.log(`Stack search: Adding block item ${blockInfo.number} to display`);
-      
+
       // Highlight selected item
       if (index === this.blockSelectionIndex_ && this.activePanel_ === 'blocks') {
         blockItem.classList.add('selected');
         console.log(`Stack search: Highlighting block ${blockInfo.number} as selected`);
       }
-      
+
       blockList.appendChild(blockItem);
     });
   }
-  
+
   /**
    * Get block information for the currently selected stack.
    * @return {!Array<{number: number, blockId: string, description: string}>} Block info array.
@@ -831,37 +852,36 @@ export class StackSearchManager {
       console.log('Stack search: No valid stack selected for block retrieval');
       return [];
     }
-    
+
     const selectedStack = this.availableStacks_[this.currentSelectionIndex_];
     const topBlockId = selectedStack.blockId;
     const topBlock = this.workspace_.getBlockById(topBlockId);
-    
+
     console.log(`Stack search: Getting blocks for stack ${selectedStack.label}, top block ID: ${topBlockId}`);
-    
+
     if (!topBlock) {
       console.log('Stack search: Top block not found');
       return [];
     }
-    
+
     const blocks = [];
     let currentBlock = topBlock;
     let blockNumber = 1;
-    
+
     // Walk through the stack and collect block information
     while (currentBlock) {
       const blockName = this.getActualBlockName_(currentBlock);
-      
+
       console.log(`Stack search: Found block ${blockNumber}: ${currentBlock.id} (${blockName})`);
-      
+
       blocks.push({
         number: blockNumber,
         blockId: currentBlock.id,
-        description: blockName,
-        block: currentBlock
+        description: blockName
       });
-      
+
       blockNumber++;
-      
+
       // Get next block in the stack - only follow nextConnection (main chain)
       if (currentBlock.nextConnection && currentBlock.nextConnection.isConnected()) {
         currentBlock = currentBlock.nextConnection.targetBlock();
@@ -871,20 +891,20 @@ export class StackSearchManager {
         break;
       }
     }
-    
+
     console.log(`Stack search: Total blocks found in stack: ${blocks.length}`);
     return blocks;
   }
-  
+
   /**
    * Update the visual selection highlight.
    * @private
    */
   updateSelectionHighlight_() {
     if (!this.activeOverlay_) return;
-    
+
     console.log(`Stack search: Updating highlights - active panel: ${this.activePanel_}, stack index: ${this.currentSelectionIndex_}, block index: ${this.blockSelectionIndex_}`);
-    
+
     // Update stack highlights
     const stackItems = this.activeOverlay_.querySelectorAll('.stack-result-item');
     console.log(`Stack search: Found ${stackItems.length} stack items`);
@@ -896,8 +916,8 @@ export class StackSearchManager {
         item.classList.remove('selected');
       }
     });
-    
-    // Update block highlights  
+
+    // Update block highlights
     const blockItems = this.activeOverlay_.querySelectorAll('.block-result-item');
     console.log(`Stack search: Found ${blockItems.length} block items`);
     blockItems.forEach((item, index) => {
@@ -909,7 +929,7 @@ export class StackSearchManager {
       }
     });
   }
-  
+
   /**
    * Handle search input text changes and filter stacks.
    * @param {string} searchText The text to search for.
@@ -917,7 +937,7 @@ export class StackSearchManager {
    */
   handleSearchInput_(searchText) {
     this.searchQuery_ = searchText.toLowerCase();
-    
+
     // Filter stacks based on search query
     if (this.searchQuery_.length === 0) {
       this.availableStacks_ = this.allAvailableStacks_;
@@ -928,14 +948,14 @@ export class StackSearchManager {
         return labelLower.includes(this.searchQuery_) || letterLower.includes(this.searchQuery_);
       });
     }
-    
+
     // Reset selection to first item
     this.currentSelectionIndex_ = 0;
-    
+
     // Update the displays
     this.updateStackList_();
     this.updateBlockList_();
-    
+
     // Announce results to screen reader
     if (this.availableStacks_.length === 0) {
       this.announceMessage_(`No stacks found matching "${searchText}"`);
@@ -943,24 +963,24 @@ export class StackSearchManager {
       this.announceMessage_(`${this.availableStacks_.length} stacks found matching "${searchText}"`);
     }
   }
-  
+
   /**
    * Cancel the current search and cleanup.
    * @private
    */
   cancelSearch_() {
     console.log('Stack search: Canceling search');
-    
+
     this.searchActive_ = false;
     this.removeSearchOverlay_();
     this.unbindSearchKeyHandlers_();
-    
+
     // Restore focus to workspace
     this.restoreWorkspaceFocus_();
-    
+
     this.announceMessage_('Stack search canceled');
   }
-  
+
   /**
    * Remove the search overlay from the DOM.
    * @private
@@ -973,7 +993,7 @@ export class StackSearchManager {
       this.activeOverlay_ = null;
     }
   }
-  
+
   /**
    * Unbind all search-related keyboard event handlers.
    * @private
@@ -982,7 +1002,7 @@ export class StackSearchManager {
     this.boundEventHandlers_.forEach(unbinder => unbinder());
     this.boundEventHandlers_.length = 0;
   }
-  
+
   /**
    * Restore focus to the workspace after search.
    * @private
@@ -1000,7 +1020,7 @@ export class StackSearchManager {
       console.warn('Stack search: Could not restore workspace focus', e);
     }
   }
-  
+
   /**
    * Announce a message to screen readers.
    * @param {string} message The message to announce.
@@ -1018,38 +1038,38 @@ export class StackSearchManager {
       announcement.style.height = '1px';
       announcement.style.overflow = 'hidden';
       announcement.textContent = message;
-      
+
       document.body.appendChild(announcement);
-      
+
       // Remove after announcement
       setTimeout(() => {
         if (announcement.parentNode) {
           announcement.parentNode.removeChild(announcement);
         }
       }, 1000);
-      
+
       console.log('Stack search:', message);
     } catch (e) {
       console.warn('Stack search: Could not announce message', e);
     }
   }
-  
+
   /**
    * Disable the stack search manager and clean up.
    */
   disable() {
     this.enabled_ = false;
-    
+
     // Cancel any active search
     if (this.searchActive_) {
       this.cancelSearch_();
     }
-    
+
     // Remove from registry
     if (this.workspace_ && this.workspace_.id) {
       stackSearchManagerRegistry.delete(this.workspace_.id);
     }
-    
+
     console.log('Stack search: Disabled for workspace', this.workspace_.id);
   }
 }
@@ -1059,19 +1079,19 @@ export class StackSearchManager {
  * @param {!Blockly.WorkspaceSvg} workspace The workspace to initialize search on.
  * @return {!StackSearchManager} The stack search manager instance.
  */
-export function initStackSearch(workspace) {
+export function initStackSearch(workspace, speech) {
   // Validate workspace
   if (!workspace || !workspace.id) {
     console.error('Cannot initialize stack search: invalid workspace');
     return null;
   }
-  
+
   // Check if an instance already exists for this workspace
   let manager = stackSearchManagerRegistry.get(workspace.id);
-  
+
   // If no instance exists, create one
   if (!manager) {
-    manager = new StackSearchManager(workspace);
+    manager = new StackSearchManager(workspace, speech);
     manager.init();
   } else {
     // If a manager already exists, just ensure it's initialized
@@ -1079,7 +1099,7 @@ export function initStackSearch(workspace) {
       manager.init();
     }
   }
-  
+
   return manager;
 }
 
@@ -1089,7 +1109,7 @@ export function initStackSearch(workspace) {
  */
 export function disposeStackSearch(workspace) {
   if (!workspace || !workspace.id) return;
-  
+
   const manager = stackSearchManagerRegistry.get(workspace.id);
   if (manager) {
     manager.disable();
