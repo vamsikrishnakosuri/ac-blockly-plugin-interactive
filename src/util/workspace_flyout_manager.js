@@ -27,11 +27,12 @@ export class WorkspaceContainerFilter {
         // Loops & iteration
         'controls_do_while',
 
-        // Other container-like blocks (adjust for your lib)
-        'print',
-        'say',
-        'ask',
-        'think',
+        // Variables
+        'variables_set',
+        'math_change',
+
+        // other independent blocks
+        'text_print'
     ]);
 
     /**

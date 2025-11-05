@@ -966,6 +966,46 @@ export class NavigationController {
       callback: (workspace) => {
         const wsCursor     = workspace.getCursor();
         const prevWsNode   = wsCursor.getCurNode();
+
+        // Check if focus is on output panel or other external element
+        const activeElement = document.activeElement;
+        const outputPanel = document.querySelector('[data-output]');
+        const isOutputFocused = outputPanel && (activeElement === outputPanel || outputPanel.contains(activeElement));
+
+        // If output panel or external element has focus, return focus to workspace cursor
+        if (isOutputFocused) {
+          // Clear any output panel focus styling
+          if (outputPanel) {
+            const focusedLines = outputPanel.querySelectorAll('.output-line-focused');
+            focusedLines.forEach(line => line.classList.remove('output-line-focused'));
+            outputPanel.blur();
+          }
+
+          // Return focus to workspace cursor at its previous position
+          if (prevWsNode) {
+            wsCursor.setCurNode(prevWsNode);
+            wsCursor.show();
+          }
+
+          // Ensure workspace is properly focused at DOM level
+          try {
+            const workspaceSvg = workspace.getParentSvg();
+            if (workspaceSvg && workspaceSvg.parentNode) {
+                workspaceSvg.focus();
+            }
+          } catch (e) {
+            console.warn('Failed to focus workspace:', e);
+          }
+
+          workspace.markFocused();
+
+          // Update navigation hints
+          this.emitKeyHints(workspace);
+
+          this.speech?.announceReturnToWorkspace?.(false);
+          return true;
+        }
+
         switch (this.navigation.getState(workspace)) {
           case Constants.STATE.FLYOUT:
             this.navigation.focusWorkspace(workspace);
@@ -1122,6 +1162,197 @@ export class NavigationController {
     Blockly.ShortcutRegistry.registry.addKeyMapping(
         shiftW,
         wsMoveDownShortcut.name,
+    );
+  }
+
+  /**
+   * Keyboard shortcut to focus the output panel with Shift+O
+   * @protected
+   */
+  registerOutputFocus() {
+    /** @type {!Blockly.ShortcutRegistry.KeyboardShortcut} */
+    const outputFocusShortcut = {
+      name: Constants.SHORTCUT_NAMES.OUTPUT_FOCUS,
+      preconditionFn: (workspace) => {
+        return workspace.keyboardAccessibilityMode && !workspace.options.readOnly;
+      },
+      callback: (workspace) => {
+        const outputPanel = document.querySelector('[data-output]');
+        if (outputPanel) {
+          this.focusOutputPanel(outputPanel);
+          return true;
+        }
+        return false;
+      },
+    };
+
+    Blockly.ShortcutRegistry.registry.register(outputFocusShortcut);
+    const shiftO = Blockly.ShortcutRegistry.registry.createSerializedKey(
+      Blockly.utils.KeyCodes.O,
+      [Blockly.utils.KeyCodes.SHIFT],
+    );
+    Blockly.ShortcutRegistry.registry.addKeyMapping(
+      shiftO,
+      outputFocusShortcut.name,
+    );
+  }
+
+  /**
+   * Focus the output panel and set up navigation
+   * @param {HTMLElement} outputPanel The output panel element
+   * @protected
+   */
+  focusOutputPanel(outputPanel) {
+    const layout = outputPanel.getAttribute('data-output');
+
+    if (layout === 'line') {
+      const lines = outputPanel.querySelectorAll('[data-output-line]');
+      if (lines.length > 0) {
+        // Announce to screen reader BEFORE focusing (so it's read first)
+        const firstLineContent = lines[0].querySelector('.output-line-content')?.textContent || '';
+        this.announceToScreenReader(`The cursor on output panel. Line 1: ${firstLineContent}`);
+
+        // Small delay to let screen reader process the announcement, then focus
+
+        outputPanel.setAttribute('tabindex', '-1');
+        outputPanel.focus();
+        lines[0].scrollIntoView({ block: 'nearest' });
+
+
+        this.initializeOutputLineNavigation(outputPanel, lines);
+      }
+    }
+    // grid layout will be implemented later
+  }
+
+  /**
+   * Initialize line-based navigation for output panel
+   * @param {HTMLElement} outputPanel The output panel element
+   * @param {NodeList} lines The output line elements
+   * @protected
+   */
+  initializeOutputLineNavigation(outputPanel, lines) {
+    let currentIndex = 0;
+
+    // Highlight first line
+    lines[0].classList.add('output-line-focused');
+
+    // Remove any existing listener
+    if (outputPanel._outputNavListener) {
+      outputPanel.removeEventListener('keydown', outputPanel._outputNavListener);
+    }
+
+    // Add keydown listener
+    const navListener = (e) => {
+      const layout = outputPanel.getAttribute('data-output');
+      if (layout !== 'line') return;
+
+      const currentLines = outputPanel.querySelectorAll('[data-output-line]');
+
+      // Handle W/S navigation
+      if (e.key === 'w' || e.key === 'W') {
+        e.preventDefault();
+        e.stopPropagation();
+        if (currentIndex > 0) {
+          currentLines[currentIndex].classList.remove('output-line-focused');
+          currentIndex--;
+          currentLines[currentIndex].classList.add('output-line-focused');
+          currentLines[currentIndex].scrollIntoView({ block: 'nearest' });
+
+          // Announce to screen reader
+          const lineContent = currentLines[currentIndex].querySelector('.output-line-content')?.textContent || '';
+          this.announceToScreenReader(`Line ${currentIndex + 1}: ${lineContent}`);
+        } else {
+          // At the first line, cannot go up
+          this.announceToScreenReader('No line before line 1');
+        }
+      } else if (e.key === 's' || e.key === 'S') {
+        e.preventDefault();
+        e.stopPropagation();
+        if (currentIndex < currentLines.length - 1) {
+          currentLines[currentIndex].classList.remove('output-line-focused');
+          currentIndex++;
+          currentLines[currentIndex].classList.add('output-line-focused');
+          currentLines[currentIndex].scrollIntoView({ block: 'nearest' });
+
+          // Announce to screen reader
+          const lineContent = currentLines[currentIndex].querySelector('.output-line-content')?.textContent || '';
+          this.announceToScreenReader(`Line ${currentIndex + 1}: ${lineContent}`);
+        } else {
+          // At the last line, cannot go down
+          this.announceToScreenReader(`No line after line ${currentLines.length}`);
+        }
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        e.stopPropagation();
+
+        // Clear focus styling and tabindex
+        currentLines[currentIndex].classList.remove('output-line-focused');
+        outputPanel.blur();
+
+        // Restore focus to workspace
+        const workspace = Blockly.getMainWorkspace();
+        if (workspace) {
+          // Focus workspace at DOM level
+          try {
+            const workspaceSvg = workspace.getParentSvg();
+            if (workspaceSvg) {
+              workspaceSvg.focus();
+            }
+          } catch (err) {
+            console.warn('Failed to focus workspace:', err);
+          }
+
+          // Mark workspace as focused in Blockly's state
+          workspace.markFocused();
+
+          // Announce to screen reader
+          this.announceToScreenReader('Returned to workspace');
+        }
+      }
+    };
+
+    // Attach listener to output panel for keyboard events
+    outputPanel._outputNavListener = navListener;
+    outputPanel.addEventListener('keydown', navListener);
+
+    // Clean up focus styling when panel loses focus
+    outputPanel.addEventListener('blur', () => {
+      const currentLines = outputPanel.querySelectorAll('[data-output-line]');
+      currentLines.forEach(line => line.classList.remove('output-line-focused'));
+    }, { once: true });
+  }
+
+  /**
+   * Keyboard shortcut to trigger the run button with Shift+R
+   * @protected
+   */
+  registerRunProgram() {
+    /** @type {!Blockly.ShortcutRegistry.KeyboardShortcut} */
+    const runProgramShortcut = {
+      name: Constants.SHORTCUT_NAMES.RUN_PROGRAM,
+      preconditionFn: (workspace) => {
+        return workspace.keyboardAccessibilityMode && !workspace.options.readOnly;
+      },
+      callback: (workspace) => {
+        const runButton = document.querySelector('[data-run]');
+        if (runButton && !runButton.disabled) {
+          runButton.click();
+          this.announceToScreenReader('Running program');
+          return true;
+        }
+        return false;
+      },
+    };
+
+    Blockly.ShortcutRegistry.registry.register(runProgramShortcut);
+    const shiftR = Blockly.ShortcutRegistry.registry.createSerializedKey(
+      Blockly.utils.KeyCodes.R,
+      [Blockly.utils.KeyCodes.SHIFT],
+    );
+    Blockly.ShortcutRegistry.registry.addKeyMapping(
+      shiftR,
+      runProgramShortcut.name,
     );
   }
 
@@ -2114,6 +2345,8 @@ export class NavigationController {
     this.registerWorkspaceMoveLeft();
     // this.registerWorkspaceMoveUp();
     this.registerWorkspaceMoveRight();
+    this.registerOutputFocus();
+    this.registerRunProgram();
 
     this.registerCopy();
     this.registerPaste();
@@ -2421,6 +2654,9 @@ export class NavigationController {
   applyToolboxFilter(workspace) {
     const cursor = workspace.getCursor?.();
 
+    // Hide marker visual when flyout is open (both edit and navigation mode)
+    this.hideMarker(workspace);
+
     if (cursor?.editMode) {
       // EDIT MODE: filter by connection compatibility
       this.workspaceContainerFilter.clearWorkspaceFilters(workspace);
@@ -2430,5 +2666,27 @@ export class NavigationController {
 
     // NAVIGATION MODE: only filter when the marker is on the WORKSPACE
     this.workspaceContainerFilter.updateFilter(workspace);
+  }
+
+  /**
+   * Hides the marker visual element (blue rectangle) when flyout is open
+   * @param {!Blockly.WorkspaceSvg} workspace The workspace
+   * @protected
+   */
+  hideMarker(workspace) {
+    const marker = this.navigation?.getMarker(workspace);
+    marker?.hide();
+  }
+
+  /**
+   * Announce message to screen reader using blockReader element
+   * @param {string} message The message to announce
+   * @protected
+   */
+  announceToScreenReader(message) {
+    const blockReader = document.getElementById('blockReader');
+    if (blockReader) {
+      blockReader.textContent = message;
+    }
   }
 }

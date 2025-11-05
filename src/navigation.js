@@ -273,6 +273,50 @@ export class Navigation {
         const block = flyoutWorkspace.getBlockById(e.newElementId);
         this.handleBlockClickInFlyout(mainWorkspace, block);
       }
+    } else if (
+        mainWorkspace &&
+        mainWorkspace.keyboardAccessibilityMode
+    ) {
+      if (e.type === Blockly.Events.BLOCK_CREATE) {
+        // after block creation in flyout (e.g., after variable creation),
+        // refocus the cursor on the first block
+        const currentState = this.getState(mainWorkspace);
+        if (currentState === Constants.STATE.FLYOUT) {
+          this.refocusFlyoutCursor(mainWorkspace);
+        }
+      }
+    }
+  }
+
+  /**
+   * Refocuses the flyout cursor on the first available block.
+   * Used after flyout content is updated (e.g., variable creation).
+   * @param {!Blockly.WorkspaceSvg} workspace The main workspace.
+   * @protected
+   */
+  refocusFlyoutCursor(workspace) {
+    const flyout = workspace.getFlyout();
+    if (!flyout || !flyout.isVisible()) {
+      return;
+    }
+
+    const flyoutCursor = this.getFlyoutCursor(workspace);
+    if (!flyoutCursor) {
+      return;
+    }
+
+    const flyoutContents = flyout.getContents();
+    if (!flyoutContents || flyoutContents.length === 0) {
+      return;
+    }
+
+    // Find the first actual block (skip buttons like "Create variable...")
+    for (const item of flyoutContents) {
+      if (item.block) {
+        const astNode = Blockly.ASTNode.createStackNode(item.block);
+        flyoutCursor.setCurNode(astNode);
+        return;
+      }
     }
   }
 
@@ -287,8 +331,14 @@ export class Navigation {
    */
   handleBlockCreate(workspace, e) {
     if (this.getState(workspace) === Constants.STATE.FLYOUT) {
-      this.resetFlyout(workspace, !!workspace.getToolbox());
-      this.setState(workspace, Constants.STATE.WORKSPACE);
+      const flyout = workspace.getFlyout();
+      const flyoutWorkspaceId = flyout?.getWorkspace()?.id;
+
+      // If block is created in main workspace (not flyout), exit flyout mode
+      if (e.workspaceId === workspace.id && e.workspaceId !== flyoutWorkspaceId) {
+        this.resetFlyout(workspace, !!workspace.getToolbox());
+        this.setState(workspace, Constants.STATE.WORKSPACE);
+      }
     }
   }
 

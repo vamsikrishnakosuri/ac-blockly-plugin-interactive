@@ -489,6 +489,10 @@ export class Speech {
     announceReturnToWorkspace(node) {
         let phrase = 'Toolbox closed. ';
 
+        if (node === false) {
+            phrase = "";
+        }
+
         if (!node) {
             this.update(`${phrase} Cursor back on workspace`);
             return;

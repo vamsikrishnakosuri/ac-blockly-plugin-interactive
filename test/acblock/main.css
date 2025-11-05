@@ -83,6 +83,7 @@ select, option, select:focus, option:hover {
     height: 32px;
     font-weight: 450;
     font-size: 1em;
+    transition: all 0.15s ease;
 }
 
 .run-button:hover {
@@ -91,13 +92,51 @@ select, option, select:focus, option:hover {
     box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
 }
 
+.run-button:active {
+    transform: scale(0.95);
+    background: #d2e3fc;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+}
+
+.shortcut-button {
+    border: 1px solid #dadce0;
+    border-radius: 4px;
+    box-sizing: border-box;
+    color: #1a73e8;
+    background: #fff;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font: 500 14px / 36px var(--font-family);
+    padding: 0 12px;
+    padding-top: 2px;
+    min-width: 80px;
+    height: 32px;
+    font-weight: 450;
+    font-size: 1em;
+    transition: all 0.15s ease;
+}
+
+.shortcut-button:hover {
+    background: #e8f0fe;
+    border: 1px solid #d2e3fc;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+}
+
+.shortcut-button:active {
+    transform: scale(0.95);
+    background: #d2e3fc;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+}
+
 /* Give specific buttons sensible minimums */
 #loadXmlButton {
     min-width: 145px;
 }
 
 #showShortcuts {
-    min-width: 140px;
+    min-width: 60px;
     min-height: 30px;
 }
 
@@ -115,60 +154,125 @@ select, option, select:focus, option:hover {
     border: 0;
 }
 
-/* Header row (Run + Program controls) */
+/* Header row (Run + Program dropdown + Shortcuts) */
 .exec-header {
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 10px;
     margin-bottom: 10px;
     flex-wrap: wrap;
     flex: 0 0 auto; /* header uses intrinsic size */
 }
 
-/* keep Run at left; controls area on the right (or next row) */
-.exec-header .program-controls {
+.exec-header #programSelect {
     margin-left: auto;
+    width: 280px;
+    max-width: 280px;
+}
+
+/* Responsive adjustments */
+@media (max-width: 600px) {
+    .exec-header {
+        gap: 8px;
+    }
+
+    .exec-header #programSelect {
+        flex: 1 0 100%;
+        order: 1;
+    }
+
+    .exec-header #showShortcuts {
+        order: 2;
+        margin-left: auto;
+    }
+}
+
+/* Output container */
+.output-container {
+    flex: 1 1 0;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    width: 100%;
+    border: 1px solid #ccc;
+    background: #fff;
+    margin-bottom: 10px;
+    box-sizing: border-box;
+}
+
+.output-header {
     display: flex;
     align-items: center;
-    gap: 10px;
-    flex-wrap: wrap;
-    min-width: 0; /* allow shrinking */
+    justify-content: space-between;
+    gap: 12px;
+    border-bottom: 1px solid #eee;
+    padding: 8px 10px;
+    background: #fafafa;
 }
 
-/* Responsive: put program controls on full-width next row for narrower screens */
-@media (max-width: 1600px) {
-    .exec-header .program-controls {
-        order: 1;
-        flex: 1 0 100%;
-        width: 100%;
-        margin-left: 0;
-        gap: 10px;
-        min-width: 0;
-    }
-
-    .program-controls .program-dropdown {
-        flex: 0 1 auto;
-        min-width: 220px;
-    }
-
-    .program-controls .run-button {
-        margin-left: auto;
-        flex: 0 0 auto;
-        width: 150px;
-    }
+.output-header h3 {
+    margin: 0;
+    font-size: 0.95rem;
+    font-weight: 600;
 }
 
-@media (max-width: 420px) {
-    .exec-header .program-controls {
-        flex-wrap: wrap;
-    }
+.output-content {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: auto;
+    padding: 0;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.95em;
+    line-height: 1.5;
+}
 
-    .program-controls .program-dropdown,
-    .program-controls .run-button {
-        flex: 1 0 100%;
-        width: 100%;
-        margin-left: 0;
-    }
+.output-content:focus {
+    outline: none;
+}
+
+.output-line {
+    display: flex;
+    padding: 4px 0;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.output-line:nth-child(odd) .output-line-content {
+    background: #f9f9f9;
+}
+
+.output-line:nth-child(even) .output-line-content {
+    background: #ffffff;
+}
+
+.output-line-number {
+    flex: 0 0 28px;
+    text-align: right;
+    padding-right: 6px;
+    padding-left: 6px;
+    color: #666;
+    background: #e8e8e8;
+    user-select: none;
+    border-right: 1px solid #ddd;
+}
+
+.output-line-content {
+    flex: 1;
+    padding-left: 15px;
+    padding-right: 10px;
+    color: #333;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+.output-line-focused {
+    outline: 2px solid #1a73e8;
+    outline-offset: -2px;
+    background: #e3f2fd !important;
+}
+
+.output-line-focused .output-line-content {
+    background: #e3f2fd !important;
 }
 
 /* Code container (scrollable content) */
@@ -221,7 +325,6 @@ pre.prettyprint {
     padding: 5px 10px !important;
 }
 
-
 /* Instruction Section */
 .instruction {
     margin-top: 12px;
@@ -266,18 +369,12 @@ pre.prettyprint {
     margin-left: auto;
 }
 
-
 .instruction-controls {
     margin-left: auto;
     display: flex;
     align-items: center;
     gap: 6px;
     white-space: nowrap;
-}
-
-.instruction-pager {
-    white-space: nowrap;
-    text-align: center;
 }
 
 .instruction-pager {
@@ -535,5 +632,3 @@ pre code {
     0%, 49% { opacity: 1; }
     50%, 100% { opacity: 0; }
 }
-
-

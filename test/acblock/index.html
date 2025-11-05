@@ -25,7 +25,7 @@
     <nav class="navbar">
         <div class="logo">
             <img src="blockly.png" class="logo" alt="Blockly Logo">
-            <h1>Blockly Prototype</h1>
+            <h1>EAF Blockly</h1>
         </div>
     </nav>
     <div style="display: flex; height: 90%;">
@@ -42,21 +42,30 @@
              aria-atomic="true"
              role="status"></div>
         <div class="execution-panel">
-            <!-- Header row: Run + program picker -->
+            <!-- Header row: Run + program picker + shortcuts -->
             <div class="exec-header" role="group">
-                <button id="runButton" class="run-button">
+                <button id="runButton" class="run-button" data-run>
                     Run <i class="fas fa-play-circle"></i>
                 </button>
-
-                <div class="program-controls">
-                    <label class="sr-only" for="programSelect">Choose a program</label>
-                    <select id="programSelect" class="program-dropdown">
-                        <option value="">None — select a program…</option>
-                        <!-- options filled by JS -->
-                    </select>
-                    <button id="loadXmlButton" class="run-button">Load Program</button>
-                </div>
+                <label class="sr-only" for="programSelect">Choose a program</label>
+                <select id="programSelect" class="program-dropdown">
+                    <option value="">None — select a program…</option>
+                    <!-- options filled on events -->
+                </select>
+                <button id="showShortcuts" class="shortcut-button" title="Show keyboard shortcuts" aria-label="Show keyboard shortcuts">
+                    <i class="fas fa-keyboard"></i>
+                </button>
             </div>
+
+            <!-- Output panel -->
+            <section class="output-container">
+                <div class="output-header">
+                    <h3>Output</h3>
+                </div>
+                <div id="outputPanel" class="output-content" data-output="line" aria-describedby="blockReader" aria-label="Output panel">
+                    <!-- Output lines will be appended here dynamically -->
+                </div>
+            </section>
 
             <!-- Code panel -->
             <div class="code-container">
@@ -74,22 +83,6 @@
                 </div>
                 <pre id="codeOutput" class="prettyprint" style="border: none"><code class="language-javascript"></code></pre>
             </div>
-
-            <!-- Instruction (appears only when a program is selected) -->
-            <section id="instructionSection" class="instruction" hidden>
-                <h3 id="instructionHeader">
-                    <div class="instruction-header-row" role="toolbar" >
-                        <span class="instruction-title">Instructions</span>
-                        <button id="instructionPrev" class="instruction-nav" type="button" title="Previous (←)">‹</button>
-                        <span id="instructionPager" class="instruction-pager"></span>
-                        <button id="instructionNext" class="instruction-nav" type="button" title="Next (→)">›</button>
-                        <button id="showShortcuts" class="run-button" type="button" title="Show all shortcuts (Ctrl+H)">
-                            Shortcuts <i class="fas fa-circle-info"></i>
-                        </button>
-                    </div>
-                </h3>
-                <div id="instructionBody" class="instruction-body"></div>
-            </section>
         </div>
     </div>
   </div>
