@@ -91,9 +91,23 @@ async function autoLoadProgramFromQuery(workspace) {
     select.dispatchEvent(changeEvent);
 }
 
+// Global instructions overlay manager
+let instructionsManager = null;
+
 function initWorkspace() {
     // load program as html select items
     populateProgramsToDom();
+
+    // Initialize instructions overlay
+    instructionsManager = window.initInstructionsOverlay();
+    
+    // Set initial button state (disabled until program is selected)
+    const infoButton = document.getElementById('showInstructions');
+    if (infoButton && instructionsManager) {
+        infoButton.disabled = true;
+        infoButton.classList.add('info-button-disabled');
+        infoButton.setAttribute('title', 'Select a program to view instructions');
+    }
 
     // Override the text_print block to use console.log instead of alert
     javascript.javascriptGenerator.forBlock['text_print'] = function(block, generator) {
@@ -151,6 +165,11 @@ function initWorkspace() {
         const select = document.getElementById("programSelect");
         const selectedId = select.value;
 
+        // Update instructions manager with current program
+        if (instructionsManager) {
+            instructionsManager.setProgramId(selectedId);
+        }
+
         if (!selectedId || selectedId === "Default") {
             // Clear workspace if no program selected
             workspace.clear();
@@ -168,6 +187,11 @@ function initWorkspace() {
 
     document.getElementById("showShortcuts")?.addEventListener("click", () => {
         nav?.showShortcuts();
+    });
+
+    // Info button to show instructions
+    document.getElementById("showInstructions")?.addEventListener("click", () => {
+        instructionsManager?.show();
     });
 
     // auto select & load program if query param is provided

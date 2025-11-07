@@ -249,6 +249,9 @@ export class StackLabelManager {
 
     // Add a fallback detection system for toolbox blocks
     this.startBlockDetection_();
+    
+    // Add DOM mutation observer as additional safety net
+    this.startDomObserver_();
   }
 
   /**
@@ -258,7 +261,7 @@ export class StackLabelManager {
   startBlockDetection_() {
     // Keep track of known block count
     this.lastBlockCount_ = 0;
-
+    
     // Set up periodic detection - more aggressive
     this.blockDetectionInterval_ = setInterval(() => {
       const currentBlocks = this.getAllTopBlocks_();
@@ -280,7 +283,7 @@ export class StackLabelManager {
         this.lastBlockIds_ = currentBlockIds;
       }
     }, 150); // Check more frequently to catch keyboard connections
-
+    
     console.log('Stack labels: Started fallback block detection');
   }
 
@@ -296,6 +299,59 @@ export class StackLabelManager {
     }
   }
 
+  /**
+   * Start DOM mutation observer to catch visual changes.
+   * @private
+   */
+  startDomObserver_() {
+    if (!this.workspace_ || !this.workspace_.getParentSvg) return;
+    
+    const workspaceSvg = this.workspace_.getParentSvg();
+    if (!workspaceSvg) return;
+    
+    this.domObserver_ = new MutationObserver((mutations) => {
+      let needsUpdate = false;
+      mutations.forEach((mutation) => {
+        // Check for added or removed block elements
+        if (mutation.type === 'childList') {
+          const addedNodes = Array.from(mutation.addedNodes);
+          const removedNodes = Array.from(mutation.removedNodes);
+          
+          if (addedNodes.some(node => node.classList && node.classList.contains('blocklyDraggable')) ||
+              removedNodes.some(node => node.classList && node.classList.contains('blocklyDraggable'))) {
+            needsUpdate = true;
+          }
+        }
+      });
+      
+      if (needsUpdate) {
+        console.log('Stack labels: DOM changes detected, updating labels');
+        setTimeout(() => {
+          this.updateAllStackLabels_();
+        }, 200);
+      }
+    });
+    
+    this.domObserver_.observe(workspaceSvg, {
+      childList: true,
+      subtree: true
+    });
+    
+    console.log('Stack labels: Started DOM mutation observer');
+  }
+  
+  /**
+   * Stop DOM mutation observer.
+   * @private
+   */
+  stopDomObserver_() {
+    if (this.domObserver_) {
+      this.domObserver_.disconnect();
+      this.domObserver_ = null;
+      console.log('Stack labels: Stopped DOM mutation observer');
+    }
+  }
+  
   /**
    * Register keyboard shortcuts for stack labels.
    * NOTE: Keyboard shortcuts are now handled by NavigationController
@@ -769,7 +825,10 @@ export class StackLabelManager {
 
     // Stop block detection
     this.stopBlockDetection_();
-
+    
+    // Stop DOM observer
+    this.stopDomObserver_();
+    
     // Unbind event handlers
     this.unbindWorkspaceEvents_();
 
@@ -1193,6 +1252,7 @@ export class StackLabelManager {
           letter = this.getNextAvailableLetter_();
           console.log('Stack labels: Assigned letter', letter, 'to block', block.id);
         }
+
 
         // Create the label element
         label = this.createStackLabel_(block, letter);

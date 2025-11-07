@@ -632,3 +632,259 @@ pre code {
     0%, 49% { opacity: 1; }
     50%, 100% { opacity: 0; }
 }
+
+/* ==================== Instructions Overlay ==================== */
+.instructions-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.7);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 10000;
+    padding: 20px;
+}
+
+.instructions-overlay-content {
+    background-color: #ffffff;
+    border-radius: 12px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    max-width: 900px;
+    width: 100%;
+    max-height: 90vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.instructions-overlay-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px 24px;
+    border-bottom: 2px solid #e0e0e0;
+    background-color: #f8f9fa;
+}
+
+.instructions-overlay-title {
+    margin: 0;
+    font-size: 1.5em;
+    font-weight: 600;
+    color: #333;
+}
+
+.instructions-overlay-close {
+    background: none;
+    border: none;
+    font-size: 1.5em;
+    color: #666;
+    cursor: pointer;
+    padding: 4px 8px;
+    border-radius: 4px;
+    transition: all 0.2s;
+}
+
+.instructions-overlay-close:hover {
+    background-color: #e0e0e0;
+    color: #333;
+}
+
+.instructions-overlay-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 24px;
+}
+
+.instructions-overlay-footer {
+    padding: 12px 24px;
+    border-top: 1px solid #e0e0e0;
+    background-color: #f8f9fa;
+    text-align: center;
+}
+
+.instructions-hint {
+    margin: 0;
+    color: #666;
+    font-size: 0.9em;
+}
+
+.instructions-hint kbd {
+    background-color: #fff;
+    border: 1px solid #ccc;
+    border-radius: 3px;
+    padding: 2px 6px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.9em;
+}
+
+/* Simplified Instructions List */
+.instructions-simple-list {
+    padding: 8px;
+}
+
+.instruction-item {
+    padding: 12px 16px;
+    margin: 4px 0;
+    border-radius: 6px;
+    line-height: 1.6;
+    transition: all 0.2s ease;
+    cursor: pointer;
+}
+
+.instruction-title {
+    font-size: 1.1em;
+    font-weight: 600;
+    color: #1a73e8;
+    background-color: #f0f7ff;
+    border-left: 4px solid #1a73e8;
+    padding-left: 20px;
+}
+
+.instruction-goal {
+    background-color: #e8f5e9;
+    border-left: 3px solid #34a853;
+    padding-left: 20px;
+}
+
+.instruction-step {
+    background-color: #fff;
+    border-left: 3px solid #fbbc04;
+    padding-left: 20px;
+}
+
+.instruction-completion {
+    background-color: #fce8e6;
+    border-left: 3px solid #ea4335;
+    padding-left: 20px;
+}
+
+.instruction-feedback {
+    background-color: #fff3e0;
+    border-left: 3px solid #ff9800;
+    padding-left: 20px;
+    font-style: italic;
+}
+
+.instruction-separator {
+    height: 2px;
+    background: linear-gradient(to right, #e0e0e0, transparent);
+    margin: 16px 0;
+}
+
+.instructions-message {
+    text-align: center;
+    padding: 40px 20px;
+}
+
+.instructions-message i {
+    font-size: 4em;
+    color: #4285f4;
+    margin-bottom: 20px;
+}
+
+.instructions-message h3 {
+    font-size: 1.5em;
+    margin: 0 0 12px 0;
+    color: #333;
+}
+
+.instructions-message p {
+    color: #666;
+    margin: 0;
+}
+
+.instructions-error i {
+    color: #f44336;
+}
+
+/* Info button styling */
+.info-button {
+    background-color: #fff;
+    color: #4285f4;
+    border: 1px solid #dadce0;
+    padding: 0 12px;
+    padding-top: 2px;
+    border-radius: 4px;
+    box-sizing: border-box;
+    cursor: pointer;
+    height: 32px;
+    width: 40px;
+    font-size: 1em;
+    transition: all 0.15s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.info-button:hover {
+    background: #e8f0fe;
+    border: 1px solid #d2e3fc;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+}
+
+.info-button:active {
+    transform: scale(0.95);
+    background: #d2e3fc;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+}
+
+.info-button:focus {
+    outline: 2px solid #1967d2;
+    outline-offset: 2px;
+}
+
+.info-button i {
+    color: #4285f4;
+    font-size: 1.4em;
+}
+
+/* Disabled state for info button */
+.info-button:disabled,
+.info-button-disabled {
+    background-color: #f5f5f5;
+    border-color: #e0e0e0;
+    cursor: not-allowed;
+    opacity: 0.5;
+}
+
+.info-button:disabled i,
+.info-button-disabled i {
+    color: #9e9e9e;
+}
+
+.info-button:disabled:hover,
+.info-button-disabled:hover {
+    background-color: #f5f5f5;
+    box-shadow: none;
+    transform: none;
+}
+
+/* Highlighted item styling */
+.instructions-highlighted {
+    background-color: #1967d2 !important;
+    color: white !important;
+    border-left-color: #1967d2 !important;
+    transform: translateX(4px);
+    box-shadow: 0 2px 8px rgba(25, 103, 210, 0.3);
+}
+
+.instructions-highlighted strong,
+.instructions-highlighted kbd {
+    color: white !important;
+}
+
+/* Screen reader only content */
+.visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border-width: 0;
+}
