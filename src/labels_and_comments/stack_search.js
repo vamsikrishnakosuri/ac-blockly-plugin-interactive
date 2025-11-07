@@ -34,20 +34,22 @@ export class StackSearchManager {
   /**
    * Constructor for the StackSearchManager.
    * @param {!Blockly.WorkspaceSvg} workspace The workspace to manage stack search for.
+   * @param {Object} speech The speech/audio manager for accessibility announcements.
    */
-  constructor(workspace) {
+  constructor(workspace, speech) {
     /**
      * The workspace this manager is associated with.
      * @type {!Blockly.WorkspaceSvg}
      * @private
      */
     this.workspace_ = workspace;
-    
+
     // Register this instance in the global registry
     if (workspace && workspace.id) {
       stackSearchManagerRegistry.set(workspace.id, this);
     }
-    
+
+    this.speech = speech;
     /**
      * Whether the manager is currently enabled.
      * @type {boolean}
