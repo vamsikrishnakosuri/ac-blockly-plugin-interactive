@@ -203,7 +203,7 @@ export class StackSearchManager {
             while (topBlock.previousConnection && topBlock.previousConnection.isConnected()) {
               topBlock = topBlock.previousConnection.targetBlock();
             }
-            
+
             // Get custom label if available (stored in stackLabelTexts_)
             const customText = stackLabelManager.stackLabelTexts_?.get(blockId) || '';
             const fullLabel = customText ? `${letter} ${customText}` : letter;
@@ -241,8 +241,8 @@ export class StackSearchManager {
     this.bindSearchKeyHandlers_();
 
     // Announce to screen readers
-    const stackList = availableStacks.map(s => s.label).join(', ');
-    this.speech?.update(`Stack search active. Available stacks: ${stackList}. Press a letter to navigate, or Escape to cancel.`);
+    const stackList = availableStacks.map(s => s.label).join('.  ');
+    this.speech?.update(`Stack search active. ${availableStacks.length} stacks are available.  Press WASD to navigate, or Escape to close.`);
   }
 
   /**
@@ -507,7 +507,11 @@ export class StackSearchManager {
       blockPanel?.classList.remove('active');
       // Reset block selection when switching back to stacks
       this.blockSelectionIndex_ = 0;
-      this.announceMessage_('Stack panel selected. Use W/S to navigate stacks, D to view blocks.');
+      const message = 'Stack panel selected. Use W/S to navigate stacks, D to view blocks.';
+      this.announceMessage_(message);
+      if (this.speech) {
+        this.speech.update(message);
+      }
     } else {
       stackPanel?.classList.remove('active');
       blockPanel?.classList.add('active');
@@ -515,7 +519,22 @@ export class StackSearchManager {
       if (this.availableBlocks_.length === 0) {
         this.updateBlockList_();
       }
-      this.announceMessage_(`Block panel selected. ${this.availableBlocks_.length} blocks available. Use W/S to navigate, A to go back to stacks.`);
+
+      // Announce the currently selected block
+      const selectedBlock = this.availableBlocks_[this.blockSelectionIndex_];
+      if (selectedBlock) {
+        const message = `Block panel selected. Block ${selectedBlock.number}: ${selectedBlock.description}`;
+        this.announceMessage_(message);
+        if (this.speech) {
+          this.speech.update(message);
+        }
+      } else {
+        const message = `Block panel selected. ${this.availableBlocks_.length} blocks available. Use W/S to navigate, A to go back to stacks.`;
+        this.announceMessage_(message);
+        if (this.speech) {
+          this.speech.update(message);
+        }
+      }
     }
 
     // Update selection highlight
@@ -544,7 +563,9 @@ export class StackSearchManager {
         // Announce selection
         const selectedStack = this.availableStacks_[newIndex];
         if (selectedStack) {
-          this.announceMessage_(`Selected stack ${selectedStack.label}, ${newIndex + 1} of ${this.availableStacks_.length}. Press D to view blocks.`);
+          if (this.speech) {
+            this.speech.update(`Stack ${selectedStack.label}`);
+          }
         }
       }
     } else {
@@ -558,7 +579,9 @@ export class StackSearchManager {
         // Announce selection
         const selectedBlock = this.availableBlocks_[newIndex];
         if (selectedBlock) {
-          this.announceMessage_(`Selected block ${selectedBlock.number}, ${newIndex + 1} of ${this.availableBlocks_.length}. Press A to go back to stacks.`);
+          if (this.speech) {
+            this.speech.update(`Block ${selectedBlock.number}: ${selectedBlock.description}`);
+          }
         }
       }
     }
@@ -689,7 +712,7 @@ export class StackSearchManager {
       this.speech?.update(`Stack ${letter} block not found`);
       return false;
     }
-    
+
     // Find the actual top block of this stack (in case blocks were added above)
     while (targetBlock.previousConnection && targetBlock.previousConnection.isConnected()) {
       targetBlock = targetBlock.previousConnection.targetBlock();
@@ -761,7 +784,7 @@ export class StackSearchManager {
    */
   getActualBlockName_(block) {
     if (!block) return 'unknown block';
-    
+
     try {
       // Get visible text from block's fields
       const allText = [];
@@ -776,15 +799,15 @@ export class StackSearchManager {
           }
         });
       }
-      
+
       let blockName = allText.join(' ').trim();
-      
+
       // If we got text, clean it up
       if (blockName) {
         blockName = blockName.toLowerCase();
         return blockName.includes('block') ? blockName : blockName + ' block';
       }
-      
+
       // Fallback to common block names
       const typeMap = {
         'controls_if': 'if do block',
@@ -795,7 +818,7 @@ export class StackSearchManager {
         'variables_get': 'variable block',
         'variables_set': 'set variable block'
       };
-      
+
       return typeMap[block.type] || block.type.replace(/_/g, ' ') + ' block';
     } catch (e) {
       return block.type.replace(/_/g, ' ') + ' block';
@@ -976,7 +999,7 @@ export class StackSearchManager {
     // Restore focus to workspace
     this.restoreWorkspaceFocus_();
 
-    this.announceMessage_('Stack search canceled');
+    this.speech?.update('Stack search closed. Focus is on workspace.');
   }
 
   /**
