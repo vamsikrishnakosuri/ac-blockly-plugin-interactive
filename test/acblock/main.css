@@ -77,13 +77,14 @@ select, option, select:focus, option:hover {
     cursor: pointer;
     display: inline-block;
     font: 500 14px / 36px var(--font-family);
-    padding: 0 12px;
+    padding: 0 10px;
     padding-top: 2px;
-    width: 82px;
+    min-width: 70px;
     height: 32px;
     font-weight: 450;
     font-size: 1em;
     transition: all 0.15s ease;
+    flex-shrink: 0; /* Prevent shrinking */
 }
 
 .run-button:hover {
@@ -135,9 +136,11 @@ select, option, select:focus, option:hover {
     min-width: 145px;
 }
 
-#showShortcuts {
-    min-width: 60px;
-    min-height: 30px;
+#showShortcuts,
+#showInstructions {
+    min-width: 40px;
+    min-height: 32px;
+    flex-shrink: 0; /* Prevent icon buttons from shrinking */
 }
 
 /* A11y helpers */
@@ -158,15 +161,15 @@ select, option, select:focus, option:hover {
 .exec-header {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 8px;
     margin-bottom: 10px;
-    flex-wrap: wrap;
+    flex-wrap: nowrap; /* Keep everything in one line */
     flex: 0 0 auto; /* header uses intrinsic size */
 }
 
 .exec-header #programSelect {
-    margin-left: auto;
-    width: 280px;
+    flex: 1 1 auto; /* Allow dropdown to shrink/grow as needed */
+    min-width: 180px;
     max-width: 280px;
 }
 

@@ -279,8 +279,6 @@ export class StackSearchManager {
 
     const instructions = document.createElement('div');
     instructions.className = 'blockly-stack-search-instructions';
-      instructions.textContent = 'Use W/S to navigate, A/D to switch panels, Enter to select:';
-
     instructions.textContent = 'Use W/S to navigate, A/D to switch panels, Enter to select:';
 
     // Create search input
@@ -1128,25 +1126,49 @@ document.head.insertAdjacentHTML('beforeend', `
     border: 2px solid #1976d2;
     border-radius: 8px;
     padding: 20px;
-    min-width: 600px;
-    max-width: 800px;
+    width: 700px;
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
     z-index: 10000;
     font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
     outline: none;
   }
   
+  .blockly-stack-search-content {
+    width: 100%;
+  }
+  
   .blockly-stack-search-panels {
     display: flex;
     gap: 20px;
     margin-bottom: 16px;
+    width: 100%;
   }
   
   .blockly-stack-search-panel {
     flex: 1;
+    min-width: 0;
     border: 2px solid #ddd;
     border-radius: 4px;
     background: #f9f9f9;
+  }
+  
+  .blockly-stack-search-input-container {
+    width: 100%;
+    margin-bottom: 16px;
+  }
+  
+  .blockly-stack-search-input {
+    width: 100%;
+    padding: 8px 12px;
+    font-size: 14px;
+    border: 2px solid #ddd;
+    border-radius: 4px;
+    box-sizing: border-box;
+  }
+  
+  .blockly-stack-search-input:focus {
+    outline: none;
+    border-color: #1976d2;
   }
   
   .blockly-stack-search-panel.active {
