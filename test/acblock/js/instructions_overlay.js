@@ -236,7 +236,7 @@ export class InstructionsOverlayManager {
   simplifyContent(contentElement) {
     // Find all scenarios
     const scenarios = contentElement.querySelectorAll('.scenario');
-    
+
     // Create a simple list container
     const listContainer = document.createElement('div');
     listContainer.className = 'instructions-simple-list';
@@ -245,43 +245,81 @@ export class InstructionsOverlayManager {
     let itemNumber = 1;
 
     scenarios.forEach((scenario, scenarioIndex) => {
+      // Create scenario card
+      const scenarioCard = document.createElement('div');
+      scenarioCard.className = 'instruction-scenario-card';
+      scenarioCard.setAttribute('data-scenario', scenarioIndex);
+
       // Get scenario data
       const title = scenario.querySelector('.scenario-title')?.textContent.trim() || '';
       const goal = scenario.querySelector('.scenario-goal')?.textContent.trim() || '';
       const steps = Array.from(scenario.querySelectorAll('.scenario-steps li'));
       const completion = scenario.querySelector('.scenario-completion')?.textContent.trim() || '';
       const feedback = scenario.querySelector('.scenario-feedback')?.textContent.trim() || '';
+      const image = scenario.querySelector('img');
+
+      // Add scenario number badge
+      const badge = document.createElement('div');
+      badge.className = 'instruction-scenario-badge';
+      badge.textContent = `Scenario ${scenarioIndex + 1}`;
+      scenarioCard.appendChild(badge);
 
       // Add title
       if (title) {
         const titleItem = this.createSimpleItem(itemNumber++, title, 'title');
-        listContainer.appendChild(titleItem);
+        scenarioCard.appendChild(titleItem);
+      }
+
+      // Add image if exists
+      if (image) {
+        const imageContainer = document.createElement('div');
+        imageContainer.className = 'instruction-image-container';
+        const clonedImage = image.cloneNode(true);
+        clonedImage.className = 'instruction-image';
+        // Preserve the original max-width if it exists, otherwise use CSS default
+        if (!image.style.maxWidth) {
+          clonedImage.style.maxWidth = '100%';
+        }
+        clonedImage.style.height = 'auto';
+        clonedImage.style.borderRadius = '8px';
+        clonedImage.style.margin = '12px 0';
+        imageContainer.appendChild(clonedImage);
+        scenarioCard.appendChild(imageContainer);
       }
 
       // Add goal
       if (goal) {
         const goalItem = this.createSimpleItem(itemNumber++, goal, 'goal');
-        listContainer.appendChild(goalItem);
+        scenarioCard.appendChild(goalItem);
       }
 
-      // Add steps
-      steps.forEach((step, stepIndex) => {
-        const stepText = `Step ${stepIndex + 1}: ${step.textContent.trim()}`;
-        const stepItem = this.createSimpleItem(itemNumber++, stepText, 'step');
-        listContainer.appendChild(stepItem);
-      });
+      // Add steps in a list
+      if (steps.length > 0) {
+        const stepsContainer = document.createElement('div');
+        stepsContainer.className = 'instruction-steps-container';
+
+        steps.forEach((step, stepIndex) => {
+          const stepText = step.textContent.trim();
+          const stepItem = this.createStepItem(itemNumber++, stepIndex + 1, stepText);
+          stepsContainer.appendChild(stepItem);
+        });
+
+        scenarioCard.appendChild(stepsContainer);
+      }
 
       // Add completion
       if (completion) {
         const completionItem = this.createSimpleItem(itemNumber++, completion, 'completion');
-        listContainer.appendChild(completionItem);
+        scenarioCard.appendChild(completionItem);
       }
 
       // Add feedback
       if (feedback) {
         const feedbackItem = this.createSimpleItem(itemNumber++, feedback, 'feedback');
-        listContainer.appendChild(feedbackItem);
+        scenarioCard.appendChild(feedbackItem);
       }
+
+      listContainer.appendChild(scenarioCard);
 
       // Add separator between scenarios (except last one)
       if (scenarioIndex < scenarios.length - 1) {
@@ -309,6 +347,32 @@ export class InstructionsOverlayManager {
     item.className = `instruction-item instruction-${type}`;
     item.setAttribute('role', 'listitem');
     item.textContent = text;
+    return item;
+  }
+
+  /**
+   * Create a step item with numbering.
+   * @param {number} number Item number
+   * @param {number} stepNumber Step number
+   * @param {string} text Step text
+   * @return {HTMLElement} The created step item
+   * @private
+   */
+  createStepItem(number, stepNumber, text) {
+    const item = document.createElement('div');
+    item.className = 'instruction-item instruction-step';
+    item.setAttribute('role', 'listitem');
+
+    const stepBadge = document.createElement('span');
+    stepBadge.className = 'instruction-step-number';
+    stepBadge.textContent = stepNumber;
+
+    const stepText = document.createElement('span');
+    stepText.className = 'instruction-step-text';
+    stepText.innerHTML = text;
+
+    item.appendChild(stepBadge);
+    item.appendChild(stepText);
     return item;
   }
 
@@ -415,7 +479,7 @@ export class InstructionsOverlayManager {
     if (!button) return;
 
     // Check if we have a valid program ID
-    if (!this.currentProgramId || this.currentProgramId === 'Default') {
+    if (!this.currentProgramId) {
       this.disableButton(button, 'No program selected');
       return;
     }
@@ -424,7 +488,7 @@ export class InstructionsOverlayManager {
     try {
       const path = `${this.instructionsBasePath}${this.currentProgramId}.html`;
       const response = await fetch(path, { method: 'HEAD', cache: 'no-store' });
-      
+
       if (response.ok) {
         this.enableButton(button);
       } else {
@@ -435,7 +499,7 @@ export class InstructionsOverlayManager {
       try {
         const path = `${this.instructionsBasePath}${this.currentProgramId}.html`;
         const response = await fetch(path, { cache: 'no-store' });
-        
+
         if (response.ok) {
           this.enableButton(button);
         } else {
@@ -478,7 +542,7 @@ export class InstructionsOverlayManager {
    * Show the instructions overlay.
    */
   async show() {
-    if (!this.currentProgramId || this.currentProgramId === 'Default') {
+    if (!this.currentProgramId) {
       this.showNoInstructionsMessage();
       return;
     }
@@ -486,7 +550,7 @@ export class InstructionsOverlayManager {
     try {
       // Load instructions for current program
       const instructions = await this.loadInstructions(this.currentProgramId);
-      
+
       // Update content
       const contentElement = document.getElementById('instructions-content');
       contentElement.innerHTML = instructions;
@@ -502,7 +566,7 @@ export class InstructionsOverlayManager {
       setTimeout(() => {
         // Force focus on the overlay to trigger NVDA focus mode
         this.overlayElement.focus();
-        
+
         // Double-check focus (sometimes needed for NVDA)
         if (document.activeElement !== this.overlayElement) {
           console.log('Retrying focus for NVDA');
@@ -510,10 +574,10 @@ export class InstructionsOverlayManager {
             this.overlayElement.focus();
           }, 50);
         }
-        
+
         // Announce instructions
         this.announceToScreenReader('Instructions dialog opened. Use W and S keys to navigate through items. Press Escape to close.');
-        
+
         // Highlight first item after announcement
         if (this.navigableItems.length > 0) {
           setTimeout(() => {

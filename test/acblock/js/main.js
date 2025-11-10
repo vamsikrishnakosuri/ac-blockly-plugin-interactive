@@ -1,10 +1,10 @@
 // list block program xml
 const PROGRAMS = [
-    { "id": "Task1", "label": "Program 1", "file": "xml/tasks/task-1.xml" },
-    { "id": "Task2", "label": "Program 2 (Incomplete)",   "file": "xml/tasks/task-2.xml" },
-    { "id": "Task2Comp", "label": "Program 2 (Complete)",    "file": "xml/tasks/task-2-complete.xml" },
-    { "id": "Test1", "label": "Test 1",    "file": "xml/tests/test1.xml" },
-    { "id": "Test2", "label": "Test 2",    "file": "xml/tests/test2.xml" },
+    { "id": "Program1", "label": "Program 1", "file": "xml/tasks/task-1.xml" },
+    { "id": "Program2", "label": "Program 2 (Incomplete)",   "file": "xml/tasks/task-2.xml" },
+    { "id": "Program2Comp", "label": "Program 2 (Complete)",    "file": "xml/tasks/task-2-complete.xml" },
+    // { "id": "Test1", "label": "Test 1",    "file": "xml/tests/test1.xml" },
+    // { "id": "Test2", "label": "Test 2",    "file": "xml/tests/test2.xml" },
 ];
 
 function populateProgramsToDom() {
@@ -17,8 +17,6 @@ function populateProgramsToDom() {
         select.appendChild(opt);
     });
 }
-
-
 
 function getProgramIdFromQuery() {
     const params = new URLSearchParams(window.location.search);
@@ -39,7 +37,7 @@ async function fetchProgramXmlById(id) {
     return await res.text();
 }
 
-// TODO: this will perform automitically when query parameter or program selection changes
+
 function loadXmlToWorkspace(workspace, xmlString) {
     try {
         const textToDom = (Blockly.Xml.textToDom || Blockly.utils.xml.textToDom);
@@ -100,13 +98,12 @@ function initWorkspace() {
 
     // Initialize instructions overlay
     instructionsManager = window.initInstructionsOverlay();
-    
-    // Set initial button state (disabled until program is selected)
-    const infoButton = document.getElementById('showInstructions');
-    if (infoButton && instructionsManager) {
-        infoButton.disabled = true;
-        infoButton.classList.add('info-button-disabled');
-        infoButton.setAttribute('title', 'Select a program to view instructions');
+
+    // Set initial button state based on default selection (Default)
+    const select = document.getElementById('programSelect');
+    const initialSelection = select.value; // This will be "Default"
+    if (instructionsManager) {
+        instructionsManager.setProgramId(initialSelection);
     }
 
     // Override the text_print block to use console.log instead of alert

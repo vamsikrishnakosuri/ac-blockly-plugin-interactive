@@ -56,7 +56,7 @@ export class NavigationController {
       this.navHint = new NavigationalHint({ speech: this.speech });
     }
     this.keyHintListener = null;
-    this.zooming = new ZoomingControl();
+    this.zooming = new ZoomingControl(this.speech);
     this.flyoutCompatibilityMgr = new FlyoutCompatibilityManager();
     this.workspaceContainerFilter = new WorkspaceContainerFilter();
   }
@@ -1060,7 +1060,11 @@ export class NavigationController {
         );
       },
       callback: (workspace) => {
-        return this.navigation.moveWSCursor(workspace, -1, 0);
+        const result = this.navigation.moveWSCursor(workspace, -1, 0);
+        if (result && this.speech) {
+          this.speech.update('Moving marker left');
+        }
+        return result;
       },
     };
 
@@ -1090,7 +1094,11 @@ export class NavigationController {
         );
       },
       callback: (workspace) => {
-        return this.navigation.moveWSCursor(workspace, 1, 0);
+        const result = this.navigation.moveWSCursor(workspace, 1, 0);
+        if (result && this.speech) {
+          this.speech.update('Moving marker right');
+        }
+        return result;
       },
     };
 
@@ -1120,7 +1128,11 @@ export class NavigationController {
         );
       },
       callback: (workspace) => {
-        return this.navigation.moveWSCursor(workspace, 0, -1);
+        const result = this.navigation.moveWSCursor(workspace, 0, -1);
+        if (result && this.speech) {
+          this.speech.update('Moving marker up');
+        }
+        return result;
       },
     };
 
@@ -1150,7 +1162,11 @@ export class NavigationController {
         );
       },
       callback: (workspace) => {
-        return this.navigation.moveWSCursor(workspace, 0, 1);
+        const result = this.navigation.moveWSCursor(workspace, 0, 1);
+        if (result && this.speech) {
+          this.speech.update('Moving marker down');
+        }
+        return result;
       },
     };
 
@@ -2013,7 +2029,11 @@ export class NavigationController {
         }
         const acCursor = workspace.getCursor();
         if (acCursor.getCurNode()?.getType() !== Blockly.ASTNode.types.BLOCK) {
-          return this.navigation.moveWSCursor(workspace, 0, -1);
+          let result = this.navigation.moveWSCursor(workspace, 0, -1);
+          if (result && this.speech) {
+            this.speech.update('Moving marker up');
+          }
+          return result;
         }
         const block = this._currentStatementBlock(workspace);
         if (!block) {
@@ -2044,7 +2064,11 @@ export class NavigationController {
         }
         const acCursor = workspace.getCursor();
         if (acCursor.getCurNode()?.getType() !== Blockly.ASTNode.types.BLOCK) {
-          return this.navigation.moveWSCursor(workspace, 0, 1);
+          let result = this.navigation.moveWSCursor(workspace, 0, 1);
+          if (result && this.speech) {
+            this.speech.update('Moving marker down');
+          }
+          return result;
         }
         const block = this._currentStatementBlock(workspace);
         if (!block) {
