@@ -2,6 +2,10 @@
  * Class for controlling zoom via keyboard shortcuts
  */
 export class ZoomingControl {
+    constructor(speech = null) {
+        this.speech = speech;
+    }
+
     /**
      * Resolve a workspace, defaulting to the main workspace.
      * @param {Blockly.WorkspaceSvg|undefined} ws
@@ -37,10 +41,20 @@ export class ZoomingControl {
      * @param {Blockly.WorkspaceSvg} workspace
      */
     _fireZoomUIEvent(workspace) {
-        const evApi = Blockly?.eventUtils ?? Blockly?.Events;
-        const Click = evApi?.get?.(Blockly?.EventType?.CLICK);
-        if (Click && evApi?.fire) {
-            evApi.fire(new Click(null, workspace?.id, 'zoom_controls'));
+        try {
+            const evApi = Blockly?.eventUtils ?? Blockly?.Events;
+            if (!evApi?.get || !evApi?.fire) return;
+
+            const eventType = Blockly?.EventType?.CLICK;
+            if (!eventType) return;
+
+            const Click = evApi.get(eventType);
+            if (Click && workspace?.id) {
+                evApi.fire(new Click(null, workspace.id, 'zoom_controls'));
+            }
+        } catch (e) {
+            // Silently ignore event firing errors - zoom functionality still works
+            console.debug('Could not fire zoom UI event:', e);
         }
     }
 
@@ -163,7 +177,15 @@ export class ZoomingControl {
      * @param {Blockly.WorkspaceSvg} [workspace]
      */
     zoomIn(workspace) {
-        return this._clickZoom(workspace, 1);
+        const result = this._clickZoom(workspace, 1);
+        if (result && this.speech) {
+            const ws = this._resolveWorkspace(workspace);
+            const scale = this._getScale(ws);
+            const percentage = Math.round(scale * 100);
+            console.log("ZOOM in")
+            this.speech.update(`Zoomed in to ${percentage}%`);
+        }
+        return result;
     }
 
     /**
@@ -171,7 +193,14 @@ export class ZoomingControl {
      * @param {Blockly.WorkspaceSvg} [workspace]
      */
     zoomOut(workspace) {
-        return this._clickZoom(workspace, -1);
+        const result = this._clickZoom(workspace, -1);
+        if (result && this.speech) {
+            const ws = this._resolveWorkspace(workspace);
+            const scale = this._getScale(ws);
+            const percentage = Math.round(scale * 100);
+            this.speech.update(`Zoomed out to ${percentage}%`);
+        }
+        return result;
     }
 
     /**
@@ -179,6 +208,13 @@ export class ZoomingControl {
      * @param {Blockly.WorkspaceSvg} [workspace]
      */
     zoomReset(workspace) {
-        return this._clickZoom(workspace, 0);
+        const result = this._clickZoom(workspace, 0);
+        if (result && this.speech) {
+            const ws = this._resolveWorkspace(workspace);
+            const { startScale } = this._getZoomOptions(ws);
+            const percentage = Math.round(startScale * 100);
+            this.speech.update(`Zoom reset to ${percentage}%`);
+        }
+        return result;
     }
 }
