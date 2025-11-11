@@ -540,6 +540,14 @@ export class StackLabelManager {
     input.style.padding = '4px';
     input.style.border = '1px solid #ccc';
     input.style.borderRadius = '3px';
+    
+    // Simple fix: Clear "I" if it appears from Shift+I shortcut
+    setTimeout(() => {
+      if (input.value === 'I' || input.value === 'i') {
+        input.value = '';
+      }
+    }, 100);
+    
     inputWrapper.appendChild(input);
 
     editor.appendChild(inputWrapper);
