@@ -231,6 +231,16 @@ export const SHORTCUT_HELP_ROWS = [
     sr: 'Shortcut keys Shift plus H. Open or close this shortcut help.'
   },
   {
+    keys: ['Shift', 'R'],
+    title: 'Run the program',
+    sr: 'Shortcut keys Shift plus R. Run the program'
+  },
+  {
+    keys: ['Shift', 'O'],
+    title: 'Open output panel',
+    sr: 'Shortcut keys Shift plus O. Access the output panel'
+  },
+  {
     keys: ['MOD', 'Shift', 'K'],
     title: 'Enable/disable keyboard accessibility',
     sr: 'Shortcut keys Command (Mac) or Control (Windows) plus Shift plus K. Enable or disable keyboard accessibility.'
