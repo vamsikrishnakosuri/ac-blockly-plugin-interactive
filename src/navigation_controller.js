@@ -2591,7 +2591,7 @@ export class NavigationController {
             }
 
             // Call the handler on the manager
-            return manager.handleStackLabelShortcut_(workspace);
+            return manager.handleStackLabelShortcut_(workspace, this.speech);
         },
     };
 
