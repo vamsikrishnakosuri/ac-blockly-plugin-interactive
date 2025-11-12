@@ -410,6 +410,10 @@ export class StackLabelManager {
     if (!isStackMode) {
       console.log('Not in stack mode, cannot edit stack label. Current node type:',
                  curNode.getType(), 'Need type:', Blockly.ASTNode.types.STACK);
+      
+      // Announce to screen reader that user is on block level
+      this.announceToScreenReader_('You are on block level. Please navigate to stack level to change stack label.');
+      
       return false;
     }
 
@@ -536,6 +540,14 @@ export class StackLabelManager {
     input.style.padding = '4px';
     input.style.border = '1px solid #ccc';
     input.style.borderRadius = '3px';
+    
+    // Simple fix: Clear "I" if it appears from Shift+I shortcut
+    setTimeout(() => {
+      if (input.value === 'I' || input.value === 'i') {
+        input.value = '';
+      }
+    }, 100);
+    
     inputWrapper.appendChild(input);
 
     editor.appendChild(inputWrapper);
@@ -602,10 +614,6 @@ export class StackLabelManager {
       }
     }
 
-    // Focus the input field
-    input.focus();
-    input.select();
-
     // Set up event handlers
     saveButton.addEventListener('click', () => {
       this.saveEditorChanges_(blockId, letter, input.value.trim());
@@ -624,9 +632,12 @@ export class StackLabelManager {
       }
     });
 
-    // Focus the input
-    input.focus();
-    input.select();
+    // Prevent 'I' from appearing in input when opened with Shift+I
+    // Focus and select after a short delay to avoid key propagation
+    setTimeout(() => {
+      input.focus();
+      input.select();
+    }, 10);
 
     // Store editor reference for later cleanup
     this.editor_ = editor;
