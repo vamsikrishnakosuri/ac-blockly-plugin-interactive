@@ -249,7 +249,7 @@ export class StackLabelManager {
 
     // Add a fallback detection system for toolbox blocks
     this.startBlockDetection_();
-    
+
     // Add DOM mutation observer as additional safety net
     this.startDomObserver_();
   }
@@ -261,29 +261,29 @@ export class StackLabelManager {
   startBlockDetection_() {
     // Keep track of known block count
     this.lastBlockCount_ = 0;
-    
+
     // Set up periodic detection - more aggressive
     this.blockDetectionInterval_ = setInterval(() => {
       const currentBlocks = this.getAllTopBlocks_();
       const currentCount = currentBlocks.length;
-      
+
       // Check not just count but also if top blocks have changed
       const currentBlockIds = currentBlocks.map(b => b.id).sort().join(',');
-      
+
       if (currentCount !== this.lastBlockCount_ || currentBlockIds !== this.lastBlockIds_) {
         console.log('Stack labels: Block structure changed from', this.lastBlockCount_, 'blocks to', currentCount, 'blocks');
         console.log('Stack labels: Block IDs changed from', this.lastBlockIds_, 'to', currentBlockIds);
-        
+
         // Update labels when block structure changes
         setTimeout(() => {
           this.updateAllStackLabels_();
         }, 100);
-        
+
         this.lastBlockCount_ = currentCount;
         this.lastBlockIds_ = currentBlockIds;
       }
     }, 150); // Check more frequently to catch keyboard connections
-    
+
     console.log('Stack labels: Started fallback block detection');
   }
 
@@ -305,10 +305,10 @@ export class StackLabelManager {
    */
   startDomObserver_() {
     if (!this.workspace_ || !this.workspace_.getParentSvg) return;
-    
+
     const workspaceSvg = this.workspace_.getParentSvg();
     if (!workspaceSvg) return;
-    
+
     this.domObserver_ = new MutationObserver((mutations) => {
       let needsUpdate = false;
       mutations.forEach((mutation) => {
@@ -316,14 +316,14 @@ export class StackLabelManager {
         if (mutation.type === 'childList') {
           const addedNodes = Array.from(mutation.addedNodes);
           const removedNodes = Array.from(mutation.removedNodes);
-          
+
           if (addedNodes.some(node => node.classList && node.classList.contains('blocklyDraggable')) ||
               removedNodes.some(node => node.classList && node.classList.contains('blocklyDraggable'))) {
             needsUpdate = true;
           }
         }
       });
-      
+
       if (needsUpdate) {
         console.log('Stack labels: DOM changes detected, updating labels');
         setTimeout(() => {
@@ -331,15 +331,15 @@ export class StackLabelManager {
         }, 200);
       }
     });
-    
+
     this.domObserver_.observe(workspaceSvg, {
       childList: true,
       subtree: true
     });
-    
+
     console.log('Stack labels: Started DOM mutation observer');
   }
-  
+
   /**
    * Stop DOM mutation observer.
    * @private
@@ -351,7 +351,7 @@ export class StackLabelManager {
       console.log('Stack labels: Stopped DOM mutation observer');
     }
   }
-  
+
   /**
    * Register keyboard shortcuts for stack labels.
    * NOTE: Keyboard shortcuts are now handled by NavigationController
@@ -380,7 +380,7 @@ export class StackLabelManager {
    * @param {!Blockly.WorkspaceSvg} workspace The workspace to handle shortcut in.
    * @private
    */
-  handleStackLabelShortcut_(workspace) {
+  handleStackLabelShortcut_(workspace, speech) {
     console.log('Handling stack label shortcut');
     if (!workspace) return false;
 
@@ -410,10 +410,10 @@ export class StackLabelManager {
     if (!isStackMode) {
       console.log('Not in stack mode, cannot edit stack label. Current node type:',
                  curNode.getType(), 'Need type:', Blockly.ASTNode.types.STACK);
-      
+
       // Announce to screen reader that user is on block level
-      this.announceToScreenReader_('You are on block level. Please navigate to stack level to change stack label.');
-      
+      speech?.update('You are on block level. Please navigate to stack level to change stack label.');
+
       return false;
     }
 
@@ -540,14 +540,14 @@ export class StackLabelManager {
     input.style.padding = '4px';
     input.style.border = '1px solid #ccc';
     input.style.borderRadius = '3px';
-    
+
     // Simple fix: Clear "I" if it appears from Shift+I shortcut
     setTimeout(() => {
       if (input.value === 'I' || input.value === 'i') {
         input.value = '';
       }
     }, 100);
-    
+
     inputWrapper.appendChild(input);
 
     editor.appendChild(inputWrapper);
@@ -836,10 +836,10 @@ export class StackLabelManager {
 
     // Stop block detection
     this.stopBlockDetection_();
-    
+
     // Stop DOM observer
     this.stopDomObserver_();
-    
+
     // Unbind event handlers
     this.unbindWorkspaceEvents_();
 
@@ -1000,7 +1000,7 @@ export class StackLabelManager {
         break;
       default:
         // Catch any other events that might affect block connections (especially keyboard navigation)
-        if (e.type && (e.type.includes('CONNECT') || e.type.includes('DISCONNECT') || 
+        if (e.type && (e.type.includes('CONNECT') || e.type.includes('DISCONNECT') ||
                        e.type.includes('CONNECTION') || (e.blockId && !e.isUiEvent))) {
           console.log('Stack labels: Other connection event detected:', e.type, 'for block:', e.blockId);
           setTimeout(() => {
@@ -1210,13 +1210,13 @@ export class StackLabelManager {
       let existingLetter = null;
       let existingLabel = null;
       let existingBlockId = null;
-      
+
       // Walk down the stack to find if any block has a label
       let currentBlock = block;
       while (currentBlock) {
         const blockLabel = this.stackLabels_.get(currentBlock.id);
         const blockLetter = this.stackLetters_.get(currentBlock.id);
-        
+
         if (blockLabel && blockLetter) {
           existingLabel = blockLabel;
           existingLetter = blockLetter;
@@ -1224,7 +1224,7 @@ export class StackLabelManager {
           console.log(`Stack labels: Found existing label "${blockLetter}" on block ${currentBlock.id} in stack`);
           break;
         }
-        
+
         // Move to next block in stack
         if (currentBlock.nextConnection && currentBlock.nextConnection.isConnected()) {
           currentBlock = currentBlock.nextConnection.targetBlock();
@@ -1232,26 +1232,26 @@ export class StackLabelManager {
           break;
         }
       }
-      
+
       let label, letter;
-      
+
       if (existingLabel && existingLetter) {
         // Stack already has a label, move it to the top block if needed
         if (existingBlockId !== block.id) {
           console.log(`Stack labels: Moving label "${existingLetter}" from block ${existingBlockId} to top block ${block.id}`);
-          
+
           // Remove from old block
           this.stackLabels_.delete(existingBlockId);
           this.stackLetters_.delete(existingBlockId);
-          
+
           // Move to new top block
           this.stackLabels_.set(block.id, existingLabel);
           this.stackLetters_.set(block.id, existingLetter);
-          
+
           // Update label position
           this.positionLabelAboveBlock_(existingLabel, block);
         }
-        
+
         label = existingLabel;
         letter = existingLetter;
       } else {
