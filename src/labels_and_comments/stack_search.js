@@ -279,7 +279,7 @@ export class StackSearchManager {
 
     const instructions = document.createElement('div');
     instructions.className = 'blockly-stack-search-instructions';
-    instructions.textContent = 'Use W/S to navigate, A/D to switch panels, Enter to select:';
+    instructions.textContent = 'W/S: navigate | A/D: switch panels | /: toggle search bar | Enter: select';
 
     // Create search input
     const searchInputContainer = document.createElement('div');
@@ -287,9 +287,10 @@ export class StackSearchManager {
 
     const searchInput = document.createElement('input');
     searchInput.type = 'text';
-    searchInput.placeholder = 'Search stacks... (e.g., "App" for "B Apple")';
+    searchInput.placeholder = 'Search stacks... (Press / to focus) (e.g., "App" for "B Apple")';
     searchInput.className = 'blockly-stack-search-input';
     searchInput.setAttribute('aria-label', 'Search stacks by name');
+    searchInput.setAttribute('tabindex', '-1'); // Prevent default tab focus
     searchInputContainer.appendChild(searchInput);
 
     // Create dual-panel container
@@ -350,17 +351,29 @@ export class StackSearchManager {
 
     // Set up search input event listener
     searchInput.addEventListener('input', (e) => {
-      this.handleSearchInput_(e.target.value);
+      // Remove any "/" characters that might have slipped through
+      let value = e.target.value;
+      if (value.includes('/')) {
+        value = value.replace(/\//g, '');
+        e.target.value = value;
+      }
+      this.handleSearchInput_(value);
     });
 
-    // Add keydown listener to search input for W/S navigation
-    searchInput.addEventListener('keydown', (e) => {
-      // Allow W/S navigation even while typing in search box
-      if (e.key.toUpperCase() === 'W' || e.key.toUpperCase() === 'S') {
-        // Let the main key handler deal with this
-        return;
+    // Add multiple event listeners to completely prevent "/" from being typed
+    const preventSlash = (e) => {
+      if (e.key === '/' || e.data === '/') {
+        e.preventDefault();
+        e.stopPropagation();
+        e.stopImmediatePropagation();
+        return false;
       }
-    });
+    };
+    
+    searchInput.addEventListener('keydown', preventSlash, true);
+    searchInput.addEventListener('keypress', preventSlash, true);
+    searchInput.addEventListener('beforeinput', preventSlash, true);
+    searchInput.addEventListener('textInput', preventSlash, true);
 
     // Add to document
     document.body.appendChild(overlay);
@@ -381,9 +394,11 @@ export class StackSearchManager {
    * @private
    */
   bindSearchKeyHandlers_() {
+    console.log('Stack search: Binding keyboard handlers');
     const keyHandler = (event) => {
       if (!this.searchActive_) return;
 
+      console.log('Stack search: Key pressed:', event.key);
       const key = event.key.toUpperCase();
 
       // Check if user is actively typing in the search input
@@ -397,14 +412,34 @@ export class StackSearchManager {
         return;
       }
 
-      // Handle Tab key to move to search input when not already there
-      if (event.key === 'Tab' && !isTypingInInput) {
+      // Handle "/" key to toggle between search input and stacks panel
+      if (event.key === '/') {
+        console.log('Stack search: "/" key pressed, isTypingInInput:', isTypingInInput);
         event.preventDefault();
         event.stopPropagation();
         const searchInput = this.activeOverlay_?.querySelector('.blockly-stack-search-input');
-        if (searchInput) {
-          searchInput.focus();
-          this.announceMessage_('Search input focused. Type to search stacks.');
+        
+        if (isTypingInInput) {
+          // Currently in search input, move back to stacks panel
+          console.log('Stack search: Moving focus from search input to stacks panel');
+          searchInput.blur(); // Remove focus from input
+          this.activeOverlay_?.focus();
+          this.activePanel_ = 'stacks';
+          this.updateSelectionHighlight_();
+          this.announceMessage_('Focus moved to stacks panel. Use W/S to navigate.');
+          if (this.speech) {
+            this.speech.update('Focus moved to stacks panel. Use W/S to navigate.');
+          }
+        } else {
+          // Currently in stacks/blocks panel, move to search input
+          console.log('Stack search: Moving focus from panel to search input');
+          if (searchInput) {
+            searchInput.focus();
+            this.announceMessage_('Search input focused. Type to search stacks, or press / to return to stacks.');
+            if (this.speech) {
+              this.speech.update('Search input focused. Type to search stacks, or press / to return to stacks.');
+            }
+          }
         }
         return;
       }
@@ -459,22 +494,6 @@ export class StackSearchManager {
           this.cancelSearch_();
         } else {
           this.announceMessage_(`No stack found with label ${key}`);
-        }
-        return;
-      }
-
-      // If user starts typing other characters (not W/S/Enter/Tab) and not in search input,
-      // auto-focus the search input to enable search mode
-      if (!isTypingInInput && key.length === 1 &&
-          key !== 'W' && key !== 'S' && event.key !== 'Enter' && event.key !== 'Tab' && event.key !== 'Escape') {
-        const searchInput = this.activeOverlay_?.querySelector('.blockly-stack-search-input');
-        if (searchInput) {
-          searchInput.focus();
-          // Let the character through to the search input
-          searchInput.value = event.key.toLowerCase();
-          this.handleSearchInput_(event.key.toLowerCase());
-          this.announceMessage_('Search mode activated. Continue typing to search stacks.');
-          event.preventDefault();
         }
         return;
       }
@@ -702,7 +721,7 @@ export class StackSearchManager {
     }
 
     if (!targetBlockId) {
-      this.speech?.(`No stack found with letter ${letter}`);
+      this.speech?.update(`No stack found with letter ${letter}`);
       return false;
     }
 
