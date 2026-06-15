@@ -8,7 +8,7 @@ const DEFAULT_PROFILE = 'default';
 
 /**
  * Get storage key for mode and profile
- * @param {string} mode - Tutorial mode (easy, intermediate, expert)
+ * @param {string} mode - Tutorial mode (beginner, intermediate, expert)
  * @param {string} profile - User profile ID
  * @returns {string}
  */

@@ -1,5 +1,5 @@
 /**
- * Easy Mode Controller
+ * Beginner Mode Controller
  * Manages progressive tutorial with block and key unlocking
  */
 
@@ -9,7 +9,7 @@ import { loadProgress, saveProgress } from '../shared/utilities/progress-store.j
 import { validateLessons } from '../shared/utilities/lesson-validator.js';
 import lessonsData from './lessons.json';
 
-export class EasyController {
+export class BeginnerController {
   constructor() {
     this.unlockState = null;
     this.currentStepIndex = 0;
@@ -19,7 +19,7 @@ export class EasyController {
   }
 
   /**
-   * Initialize Easy mode
+   * Initialize Beginner mode
    * @returns {Promise<boolean>} Success status
    */
   async init() {
@@ -33,7 +33,7 @@ export class EasyController {
       }
 
       // Load saved progress
-      const savedProgress = loadProgress('easy');
+      const savedProgress = loadProgress('beginner');
       
       // Initialize unlock state
       this.unlockState = new UnlockState(lessonsData);
@@ -43,13 +43,13 @@ export class EasyController {
         this.currentStepIndex = savedProgress.currentStepIndex || 0;
         announce('Welcome back! Continuing from where you left off.');
       } else {
-        announce('Welcome to Easy Mode! Starting first lesson.');
+        announce('Welcome to Beginner Mode! Starting first lesson.');
       }
 
       this.isInitialized = true;
       return true;
     } catch (error) {
-      console.error('Failed to initialize Easy mode:', error);
+      console.error('Failed to initialize Beginner mode:', error);
       announce('Error initializing tutorial mode.');
       return false;
     }
@@ -124,7 +124,7 @@ export class EasyController {
         'lessons'
       );
     } else {
-      announce('Congratulations! You have completed all Easy mode lessons!');
+      announce('Congratulations! You have completed all Beginner mode lessons!');
     }
 
     this.saveCurrentProgress();
@@ -172,7 +172,7 @@ export class EasyController {
       };
     }
 
-    return { available: false, reason: 'Not available in Easy mode' };
+    return { available: false, reason: 'Not available in Beginner mode' };
   }
 
   /**
@@ -197,7 +197,7 @@ export class EasyController {
       };
     }
 
-    return { available: false, reason: 'Not available in Easy mode' };
+    return { available: false, reason: 'Not available in Beginner mode' };
   }
 
   /**
@@ -233,7 +233,7 @@ export class EasyController {
       hintsShown: this.hintsShown
     };
 
-    saveProgress('easy', progressData);
+    saveProgress('beginner', progressData);
   }
 
   /**

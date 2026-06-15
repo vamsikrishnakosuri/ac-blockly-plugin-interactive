@@ -1,6 +1,6 @@
 /**
  * Mode Selector Dashboard
- * Shows three mode tiles: Easy, Intermediate, Expert
+ * Shows three mode tiles: Beginner, Intermediate, Expert
  * Keyboard navigation with A/D (left/right) and Enter to select
  */
 
@@ -14,8 +14,8 @@ export class ModeSelector {
     this.selectedIndex = 0;
     this.modes = [
       {
-        id: 'easy',
-        title: 'Easy Mode',
+        id: 'beginner',
+        title: 'Beginner Mode',
         description: 'Learn block programming step by step. Blocks and keyboard commands unlock progressively as you complete lessons.',
         features: ['Progressive unlocking', '8 guided lessons', 'Hints on request', 'Code preview in Lesson 8'],
         icon: '🎓'

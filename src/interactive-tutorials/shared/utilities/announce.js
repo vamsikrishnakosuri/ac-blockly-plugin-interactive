@@ -1,58 +1,106 @@
 /**
- * Accessible announcement utilities using aria-live regions
- * Uses polite announcements to avoid interrupting screen reader speech
+ * Accessible announcements via aria-live regions.
+ *
+ * Two problems this module exists to solve, learned from VoiceOver testing:
+ *
+ *   1. CLOBBERING. A single live region that is cleared and re-set on every
+ *      call loses messages: if two announcements fire close together (e.g. the
+ *      trainer opens and immediately renders its first step), the second wipes
+ *      the first before the screen reader has spoken it. So we QUEUE messages
+ *      and release them one at a time, pacing by an estimate of how long each
+ *      takes to speak. Passive narration therefore plays in full, in order.
+ *
+ *   2. POLITE GETS DROPPED. A `polite` message announced while the screen
+ *      reader is busy (e.g. reading a freshly loaded page) is discarded. For
+ *      messages that must cut through — a page-load instruction, "Correct!",
+ *      the next prompt the moment the learner acts — pass `{ assertive: true }`.
+ *      Assertive messages clear the queue and speak immediately through a
+ *      separate `aria-live="assertive"` / `role="alert"` region.
+ *
+ * Backward compatible: `announce(message)` keeps working and stays polite.
  */
 
-let liveRegion = null;
+let politeRegion = null;
+let assertiveRegion = null;
 
-/**
- * Initialize the global live region for announcements
- * Should be called once on app initialization
- */
-export function initLiveRegion() {
-  if (liveRegion) return liveRegion;
+/** Queue of pending polite messages: [{ message }]. */
+const queue = [];
+let releasing = false;
 
-  liveRegion = document.createElement('div');
-  liveRegion.setAttribute('role', 'status');
-  liveRegion.setAttribute('aria-live', 'polite');
-  liveRegion.setAttribute('aria-atomic', 'true');
-  liveRegion.className = 'sr-only';
-  
-  // Visually hidden but accessible to screen readers
-  liveRegion.style.cssText = `
-    position: absolute;
-    left: -10000px;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-  `;
-  
-  document.body.appendChild(liveRegion);
-  return liveRegion;
+function makeRegion(level) {
+  const el = document.createElement('div');
+  el.setAttribute('role', level === 'assertive' ? 'alert' : 'status');
+  el.setAttribute('aria-live', level);
+  el.setAttribute('aria-atomic', 'true');
+  el.className = 'sr-only';
+  // Visually hidden but still spoken. NB: never use display:none / visibility:
+  // hidden here — those remove the node from the accessibility tree and silence
+  // it. The off-screen clip is the accessible-hiding pattern.
+  el.style.cssText =
+    'position:absolute;left:-10000px;width:1px;height:1px;overflow:hidden;';
+  document.body.appendChild(el);
+  return el;
 }
 
 /**
- * Announce a message to screen readers
- * @param {string} message - The message to announce
- * @param {number} delay - Optional delay in ms before announcing (default: 100)
+ * Create the live regions once. Safe to call repeatedly. Returns the polite
+ * region for backward compatibility with earlier callers.
  */
-export function announce(message, delay = 100) {
-  if (!liveRegion) {
-    initLiveRegion();
-  }
+export function initLiveRegion() {
+  if (!politeRegion) politeRegion = makeRegion('polite');
+  if (!assertiveRegion) assertiveRegion = makeRegion('assertive');
+  return politeRegion;
+}
 
+// Roughly how long a screen reader needs to speak `text`, so queued messages do
+// not overlap. ~13 characters/second is deliberately conservative (most voices
+// are faster); better a little dead air than two messages talking over each
+// other. Floored so short messages still get a beat, capped so a very long one
+// cannot wedge the queue.
+function speakMs(text) {
+  const ms = Math.round((text.length / 13) * 1000) + 300;
+  return Math.min(Math.max(ms, 1100), 12000);
+}
+
+function releaseNext() {
+  if (releasing) return;
+  const item = queue.shift();
+  if (!item) return;
+  releasing = true;
+  politeRegion.textContent = '';
+  // A tick of empty-then-text makes the change register reliably.
+  setTimeout(() => { if (politeRegion) politeRegion.textContent = item.message; }, 50);
+  setTimeout(() => { releasing = false; releaseNext(); }, speakMs(item.message));
+}
+
+/**
+ * Announce a message to screen readers.
+ * @param {string} message - The message to speak.
+ * @param {object} [opts]
+ * @param {boolean} [opts.assertive=false] - Interrupt: clear the queue and
+ *   speak immediately. Use for page-load instructions and active feedback.
+ */
+export function announce(message, opts = {}) {
+  initLiveRegion();
   if (!message || typeof message !== 'string') {
     console.warn('announce() called with invalid message:', message);
     return;
   }
+  // Tolerate the old numeric-delay second argument: treat anything non-object
+  // as "no options".
+  const assertive = !!(opts && typeof opts === 'object' && opts.assertive);
 
-  // Clear previous announcement
-  liveRegion.textContent = '';
+  if (assertive) {
+    // Drop anything queued; an assertive message supersedes passive narration.
+    queue.length = 0;
+    releasing = false;
+    assertiveRegion.textContent = '';
+    setTimeout(() => { if (assertiveRegion) assertiveRegion.textContent = message; }, 50);
+    return;
+  }
 
-  // Delay ensures screen readers pick up the change
-  setTimeout(() => {
-    liveRegion.textContent = message;
-  }, delay);
+  queue.push({ message });
+  releaseNext();
 }
 
 /**
@@ -68,7 +116,7 @@ export function announceSuccess(message) {
  * @param {string} message - Error message
  */
 export function announceError(message) {
-  announce(`Error: ${message}`);
+  announce(`Error: ${message}`, { assertive: true });
 }
 
 /**
@@ -83,11 +131,14 @@ export function announceProgress(current, total, context = 'items') {
 }
 
 /**
- * Clean up live region on disposal
+ * Clean up live regions and the pending queue on disposal.
  */
 export function disposeLiveRegion() {
-  if (liveRegion && liveRegion.parentNode) {
-    liveRegion.parentNode.removeChild(liveRegion);
-    liveRegion = null;
-  }
+  queue.length = 0;
+  releasing = false;
+  [politeRegion, assertiveRegion].forEach((el) => {
+    if (el && el.parentNode) el.parentNode.removeChild(el);
+  });
+  politeRegion = null;
+  assertiveRegion = null;
 }

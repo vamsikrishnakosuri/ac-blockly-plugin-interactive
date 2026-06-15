@@ -1,5 +1,5 @@
 /**
- * Easy Mode Unlock State Machine
+ * Beginner Mode Unlock State Machine
  * Manages progressive unlocking of blocks and keyboard commands
  */
 
