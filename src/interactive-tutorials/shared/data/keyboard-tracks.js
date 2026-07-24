@@ -14,12 +14,30 @@
  *      block. Those run as "live coach" steps (a `live` descriptor) and are
  *      confirmed from real editor state; the rest fall back to rehearsal.
  *
- * TWO TRACKS, by intent (from the BVI co-design sessions):
- *   - Navigation — read and explore WITHOUT changing the program. Move the
- *     marker over the canvas, move the cursor between blocks, nest in and out,
- *     open the toolbox, ask "where am I", run, and hear output.
- *   - Editing — CHANGE the program. Edit mode, move a block, disconnect, cut and
- *     paste, delete, label a stack, comment.
+ * TWO TRACKS, by intent (from the BVI co-design sessions), each a deliberately
+ * ORDERED arc that moves the learner through real scenes on the canvas (see
+ * `scene` on each move and PRACTICE_SCENES in practice-programs.js) — not a flat
+ * bag of shortcuts. Every move is something a sighted learner can also sit and
+ * practise, so the curriculum is honest for everyone:
+ *
+ *   - Navigation — read and explore WITHOUT changing the program. The arc starts
+ *     on an EMPTY canvas: turn keyboard mode on (Ctrl+Shift+K), glide the marker
+ *     over blank space (Shift+WASD), open and close the toolbox (T / Esc), and
+ *     place your first block from it. The canvas then becomes a TWO-STACK program
+ *     (an if-else stack and a while stack) and the learner walks it: cursor moves
+ *     (W/A/S/D), nest in and out (F/Q), jump across stacks (Opt+Shift+G), open the
+ *     shortcuts list (Shift+K) and the navigational assistant (Shift+H), then run
+ *     (Shift+R) and hear output (Shift+O).
+ *   - Editing — CHANGE the two-stack program. Edit mode (E), move a block up or
+ *     down (Shift+W/S), disconnect (Shift+X), cut / copy / paste (Ctrl+X, Ctrl+C,
+ *     Ctrl+V), delete, comment (Ctrl+/), reach into a block's inner property
+ *     (Shift+F), label a whole stack (Shift+I) and fast-travel to it (Opt+letter).
+ *
+ * SCENES:
+ *   Each move carries a `scene` id ('empty' or 'twoStack'). The trainer lays that
+ *   scene on the real canvas before the drill so what the learner hears described
+ *   matches what their keypress will act on. Scene swaps reuse one stash of the
+ *   learner's own blocks, restored intact when they leave.
  *
  * VERIFICATION, honestly:
  *   - Cursor moves are confirmed with `cursorMoved` (the cursor's node id
@@ -79,13 +97,47 @@ export const KEYBOARD_TRACKS = [
     id: 'track-navigation',
     title: 'Navigation',
     description:
-      'Read and explore your program without changing it. First move the marker ' +
-      'around the canvas, then move the cursor between blocks, step in and out of ' +
-      'nested blocks, open the toolbox, ask where you are, run the program, and ' +
-      'hear its output. The trainer drops you into a small practice program so ' +
-      'every key has something real to act on.',
+      'Read and explore a program without changing it. The arc starts on an empty ' +
+      'canvas: turn keyboard mode on, glide the marker over blank space, open and ' +
+      'close the toolbox, and place your first block. The canvas then becomes a ' +
+      'small two-stack program — an if-else stack and a while-loop stack — and you ' +
+      'walk it: move the cursor between blocks, step in and out of nested blocks, ' +
+      'jump across stacks, open the shortcuts list and the navigational assistant, ' +
+      'then run the program and hear its output. Every key always has something ' +
+      'real to act on.',
     requiresSandbox: true,
     shortcuts: [
+      // --- SCENE: empty canvas -------------------------------------------------
+      {
+        id: 'enable-keyboard-nav',
+        label: 'Turn keyboard mode on or off',
+        keywords: ['keyboard mode', 'keyboard navigation', 'accessibility', 'enable',
+          'turn on', 'switch on', 'keyboard access', 'start keyboard', 'on off',
+          'activate keyboard', 'keyboard accessibility'],
+        keyHint: 'Control plus Shift plus K',
+        instruction:
+          'Everything else in this trainer depends on keyboard mode being on. It ' +
+          'puts a movable cursor on the canvas and routes the shortcut keys to the ' +
+          'editor. Hold Control, Shift, and K together to toggle it. The canvas is ' +
+          'empty right now — press Control plus Shift plus K to turn keyboard mode ' +
+          'on.',
+        detect: { code: 'KeyK', ctrl: true, shift: true },
+        helpRow: 32,
+        mode: 'any',
+        scene: 'empty',
+        // The trainer turns keyboard nav OFF just before this drill (disableNavFirst)
+        // so the learner's own keypress flips it ON — a real, observable toggle we
+        // confirm from editor state rather than trusting the keystroke.
+        live: {
+          focus: 'workspace',
+          disableNavFirst: true,
+          confirm: 'keyboardNavOn',
+          cue: 'Keyboard mode is now on — a cursor is on the canvas.'
+        },
+        success:
+          'Keyboard mode is on. The same Control plus Shift plus K turns it off ' +
+          'again. Leave it on for the rest of the trainer.'
+      },
       {
         id: 'move-workspace-marker',
         label: 'Move the workspace marker',
@@ -128,125 +180,12 @@ export const KEYBOARD_TRACKS = [
         ],
         helpRow: 22,
         mode: 'navigation',
+        scene: 'empty',
         success:
           'Marker right. That is the workspace marker — Shift with W, A, S, or D ' +
           'glides it up, left, down, and right around the canvas. With a block ' +
           'selected, the same Shift keys move the block instead; you will meet that ' +
           'in the Editing track.'
-      },
-      {
-        id: 'move-up',
-        label: 'Move to the previous block',
-        keywords: ['previous', 'up', 'before', 'back', 'prior', 'preceding',
-          'move up', 'go up', 'navigate up', 'earlier block'],
-        keyHint: 'W',
-        instruction:
-          'Press W to move the cursor up to the previous block. Your cursor is on ' +
-          'the second print inside the loop — press W to step up to the first one.',
-        detect: { code: 'KeyW' },
-        helpRow: 0,
-        mode: 'navigation',
-        live: { focus: 'workspace', requiresKeyboardNav: true, start: 'secondChild', confirm: 'cursorMoved' },
-        success: 'Moved up to the previous block.'
-      },
-      {
-        id: 'move-out-parent',
-        label: 'Move out to the parent',
-        keywords: ['out', 'parent', 'container', 'outer', 'move out', 'level up',
-          'exit', 'leave block', 'enclosing', 'go out'],
-        keyHint: 'A',
-        instruction:
-          'Press A to move out to the block that contains the current one. Your ' +
-          'cursor is on the number in the loop counter — press A to move out to the ' +
-          'loop that holds it.',
-        detect: { code: 'KeyA' },
-        helpRow: 2,
-        mode: 'navigation',
-        live: { focus: 'workspace', requiresKeyboardNav: true, start: 'value', confirm: 'cursorMoved' },
-        success: 'Moved out to the parent.'
-      },
-      {
-        id: 'move-down',
-        label: 'Move to the next block',
-        keywords: ['next', 'down', 'after', 'forward', 'following', 'subsequent',
-          'move down', 'go down', 'navigate down', 'later block'],
-        keyHint: 'S',
-        instruction:
-          'Press S to move the cursor down to the next block. Your cursor is on ' +
-          'the first print inside the loop — press S to step down to the second one.',
-        detect: { code: 'KeyS' },
-        helpRow: 1,
-        mode: 'navigation',
-        live: { focus: 'workspace', requiresKeyboardNav: true, start: 'firstChild', confirm: 'cursorMoved' },
-        success: 'Moved down to the next block.'
-      },
-      {
-        id: 'move-in-child',
-        label: 'Move in to a child',
-        keywords: ['in', 'child', 'inside', 'into', 'first inside', 'move in',
-          'go in', 'enter', 'inner', 'down a level'],
-        keyHint: 'D',
-        instruction:
-          'Press D to move in to the first block inside the current one. Your ' +
-          'cursor is on the first print — press D to step in to the text it prints.',
-        detect: { code: 'KeyD' },
-        helpRow: 3,
-        mode: 'navigation',
-        live: { focus: 'workspace', requiresKeyboardNav: true, start: 'firstChild', confirm: 'cursorMoved' },
-        success: 'Moved in to the child.'
-      },
-      {
-        id: 'move-into-nested',
-        label: 'Step into a nested block',
-        keywords: ['nest', 'nesting', 'nesting in', 'nested', 'go inside', 'inside',
-          'into', 'child', 'deeper', 'step in', 'drill in', 'inside loop', '3d navigation'],
-        keyHint: 'F',
-        instruction:
-          'Press F to step into the first block nested inside a container. Your ' +
-          'cursor is on the repeat loop — press F to drop inside it, onto the first ' +
-          'print block.',
-        detect: { code: 'KeyF' },
-        helpRow: 4,
-        mode: 'navigation',
-        live: { focus: 'workspace', requiresKeyboardNav: true, start: 'container', confirm: 'cursorMoved' },
-        success: 'Stepped into the nested block.'
-      },
-      {
-        id: 'move-out-nested',
-        label: 'Step back out to the parent',
-        keywords: ['nest', 'nesting', 'nesting out', 'go out', 'back out', 'parent',
-          'shallower', 'step out', 'climb out', 'exit nest', 'out of loop', '3d navigation'],
-        keyHint: 'Q',
-        instruction:
-          'Press Q to step back out to the parent block or the outer layer. Your ' +
-          'cursor is on the first print inside the loop — press Q to move back out ' +
-          'to the loop that holds it.',
-        detect: { code: 'KeyQ' },
-        helpRow: 5,
-        mode: 'navigation',
-        live: { focus: 'workspace', requiresKeyboardNav: true, start: 'firstChild', confirm: 'cursorMoved' },
-        success: 'Stepped out to the parent.'
-      },
-      {
-        id: 'announce-cursor',
-        label: 'Ask where the cursor is',
-        keywords: ['where am i', 'where', 'cursor', 'cursor location', 'location',
-          'position', 'lost', 'orient', 'current', 'read cursor', 'my place', 'locate'],
-        keyHint: 'C',
-        instruction:
-          'Press C at any time to hear where your cursor is right now. It is your ' +
-          '"where am I" key — use it whenever you lose your place. Your cursor is on ' +
-          'the first print inside the loop; press C to hear it described.',
-        detect: { code: 'KeyC' },
-        helpRow: 9,
-        mode: 'any',
-        live: {
-          focus: 'workspace',
-          requiresKeyboardNav: true,
-          start: 'firstChild',
-          cue: 'Cursor location announced by the editor.'
-        },
-        success: 'The editor announced where your cursor is.'
       },
       {
         id: 'toolbox-open-close',
@@ -276,8 +215,202 @@ export const KEYBOARD_TRACKS = [
         ],
         helpRow: 7,
         mode: 'any',
+        scene: 'empty',
         live: { focus: 'workspace', requiresKeyboardNav: true },
         success: 'That is the pair: T opens the toolbox, Escape closes it and brings you back to the workspace.'
+      },
+      {
+        id: 'place-first-block',
+        label: 'Place a block from the toolbox',
+        keywords: ['place block', 'add block', 'insert block', 'first block',
+          'drop block', 'build', 'create block', 'print block', 'pick block', 'choose block'],
+        keyHint: 'T, then arrows and Enter',
+        instruction:
+          'Now build something. Press T to open the toolbox, use the Up and Down ' +
+          'arrows to move through the categories and blocks, and press Enter on a ' +
+          'block — a print block is a good first one — to drop it on the canvas. We ' +
+          'confirm the moment a new block actually appears.',
+        // No single detect: placing a block is a short interaction (open, choose,
+        // Enter). We confirm the real result — a block appeared — with the
+        // workspaceChanged probe, and listen for Enter as the triggering key.
+        detect: { key: 'Enter' },
+        mode: 'any',
+        scene: 'empty',
+        live: { focus: 'workspace', requiresKeyboardNav: true, confirm: 'workspaceChanged' },
+        success:
+          'A block is on the canvas — you placed it entirely from the keyboard. ' +
+          'Next we will load a larger program to explore.'
+      },
+      // --- SCENE: two-stack program --------------------------------------------
+      {
+        id: 'move-down',
+        label: 'Move to the next block',
+        keywords: ['next', 'down', 'after', 'forward', 'following', 'subsequent',
+          'move down', 'go down', 'navigate down', 'later block'],
+        keyHint: 'S',
+        instruction:
+          'A two-stack program is on the canvas now and your cursor is on the ' +
+          'if-else block at the top of Stack A. Press S to move the cursor down to ' +
+          'the next block — the print that comes after the if-else.',
+        detect: { code: 'KeyS' },
+        helpRow: 1,
+        mode: 'navigation',
+        scene: 'twoStack',
+        live: { focus: 'workspace', requiresKeyboardNav: true, start: 'aIf', confirm: 'cursorMoved' },
+        success: 'Moved down to the next block.'
+      },
+      {
+        id: 'move-up',
+        label: 'Move to the previous block',
+        keywords: ['previous', 'up', 'before', 'back', 'prior', 'preceding',
+          'move up', 'go up', 'navigate up', 'earlier block'],
+        keyHint: 'W',
+        instruction:
+          'Press W to move the cursor up to the previous block. Your cursor is on ' +
+          'the print after the if-else — press W to step back up to the if-else.',
+        detect: { code: 'KeyW' },
+        helpRow: 0,
+        mode: 'navigation',
+        scene: 'twoStack',
+        live: { focus: 'workspace', requiresKeyboardNav: true, start: 'aAfter', confirm: 'cursorMoved' },
+        success: 'Moved up to the previous block.'
+      },
+      {
+        id: 'move-in-child',
+        label: 'Move in to a child',
+        keywords: ['in', 'child', 'inside', 'into', 'first inside', 'move in',
+          'go in', 'enter', 'inner', 'down a level'],
+        keyHint: 'D',
+        instruction:
+          'Press D to move in to the first block inside the current one. Your ' +
+          'cursor is on the if-else block — press D to step in toward what it holds.',
+        detect: { code: 'KeyD' },
+        helpRow: 3,
+        mode: 'navigation',
+        scene: 'twoStack',
+        live: { focus: 'workspace', requiresKeyboardNav: true, start: 'aIf', confirm: 'cursorMoved' },
+        success: 'Moved in to the child.'
+      },
+      {
+        id: 'move-out-parent',
+        label: 'Move out to the parent',
+        keywords: ['out', 'parent', 'container', 'outer', 'move out', 'level up',
+          'exit', 'leave block', 'enclosing', 'go out'],
+        keyHint: 'A',
+        instruction:
+          'Press A to move out to the block that contains the current one. Your ' +
+          'cursor is on the if-else block\'s true-or-false test — press A to move ' +
+          'out to the if-else that holds it.',
+        detect: { code: 'KeyA' },
+        helpRow: 2,
+        mode: 'navigation',
+        scene: 'twoStack',
+        live: { focus: 'workspace', requiresKeyboardNav: true, start: 'aCond', confirm: 'cursorMoved' },
+        success: 'Moved out to the parent.'
+      },
+      {
+        id: 'move-into-nested',
+        label: 'Step into a nested block',
+        keywords: ['nest', 'nesting', 'nesting in', 'nested', 'go inside', 'inside',
+          'into', 'child', 'deeper', 'step in', 'drill in', 'inside loop', '3d navigation'],
+        keyHint: 'F',
+        instruction:
+          'Press F to step into the first block nested inside a container. Your ' +
+          'cursor is on the if-else block — press F to drop inside it, onto the ' +
+          'print in its first branch.',
+        detect: { code: 'KeyF' },
+        helpRow: 4,
+        mode: 'navigation',
+        scene: 'twoStack',
+        live: { focus: 'workspace', requiresKeyboardNav: true, start: 'aIf', confirm: 'cursorMoved' },
+        success: 'Stepped into the nested block.'
+      },
+      {
+        id: 'move-out-nested',
+        label: 'Step back out to the parent',
+        keywords: ['nest', 'nesting', 'nesting out', 'go out', 'back out', 'parent',
+          'shallower', 'step out', 'climb out', 'exit nest', 'out of loop', '3d navigation'],
+        keyHint: 'Q',
+        instruction:
+          'Press Q to step back out to the parent block or the outer layer. Your ' +
+          'cursor is on the print inside the if-else\'s first branch — press Q to ' +
+          'climb back out to the if-else that holds it.',
+        detect: { code: 'KeyQ' },
+        helpRow: 5,
+        mode: 'navigation',
+        scene: 'twoStack',
+        live: { focus: 'workspace', requiresKeyboardNav: true, start: 'aIfPrint', confirm: 'cursorMoved' },
+        success: 'Stepped out to the parent.'
+      },
+      {
+        id: 'announce-cursor',
+        label: 'Ask where the cursor is',
+        keywords: ['where am i', 'where', 'cursor', 'cursor location', 'location',
+          'position', 'lost', 'orient', 'current', 'read cursor', 'my place', 'locate'],
+        keyHint: 'C',
+        instruction:
+          'Press C at any time to hear where your cursor is right now. It is your ' +
+          '"where am I" key — use it whenever you lose your place. Your cursor is on ' +
+          'the if-else block; press C to hear it described.',
+        detect: { code: 'KeyC' },
+        helpRow: 9,
+        mode: 'any',
+        scene: 'twoStack',
+        live: {
+          focus: 'workspace',
+          requiresKeyboardNav: true,
+          start: 'aIf',
+          cue: 'Cursor location announced by the editor.'
+        },
+        success: 'The editor announced where your cursor is.'
+      },
+      {
+        id: 'search-stacks',
+        label: 'Jump across stacks',
+        keywords: ['search stacks', 'jump', 'stack search', 'find stack', 'go to stack',
+          'panel', 'list of stacks', 'across stacks', 'switch stack', 'second stack'],
+        keyHint: 'Option plus Shift plus G',
+        instruction:
+          'With two separate stacks on the canvas, you need a way to leap between ' +
+          'them. Hold Option, Shift, and G to open a panel that lists every stack ' +
+          'and its blocks. Move to Stack B\'s second block and press Enter to land ' +
+          'your cursor there. Your cursor is on Stack A — press Option plus Shift ' +
+          'plus G to open the panel.',
+        detect: { code: 'KeyG', alt: true, shift: true },
+        helpRow: 25,
+        mode: 'any',
+        scene: 'twoStack',
+        live: {
+          focus: 'workspace',
+          requiresKeyboardNav: true,
+          needsBlocks: true,
+          start: 'aIf',
+          cue: 'Stack search panel opened — choose a stack and block to jump to.'
+        },
+        success:
+          'That is Option plus Shift plus G — the stack search. It lists every ' +
+          'stack so you can jump straight to any block, however far apart they are.'
+      },
+      {
+        id: 'shortcuts-list',
+        label: 'Open the shortcuts list',
+        keywords: ['shortcuts list', 'shortcut help', 'all shortcuts', 'key list',
+          'cheat sheet', 'reference', 'list keys', 'help list', 'what are the keys'],
+        keyHint: 'Shift plus K',
+        instruction:
+          'Press Shift plus K to open or close the full shortcuts list — every key ' +
+          'the editor knows, read out in order. It is your reference whenever you ' +
+          'forget a key. Press Shift plus K now.',
+        detect: { code: 'KeyK', shift: true },
+        helpRow: 27,
+        mode: 'any',
+        scene: 'twoStack',
+        live: {
+          focus: 'workspace',
+          requiresKeyboardNav: true,
+          cue: 'Shortcuts list opened — press Shift plus K again to close it.'
+        },
+        success: 'That is Shift plus K — open or close the shortcuts list any time.'
       },
       {
         id: 'navigational-assistant',
@@ -289,15 +422,16 @@ export const KEYBOARD_TRACKS = [
           'Press Shift plus H to open the navigational assistant. It reads out ' +
           'where you are and where you can move from the block at your cursor, so ' +
           'it only makes sense with a block under the cursor. Your cursor is on the ' +
-          'first print inside the loop; press Shift plus H.',
+          'if-else block; press Shift plus H.',
         detect: { code: 'KeyH', shift: true },
         helpRow: 29,
         mode: 'any',
+        scene: 'twoStack',
         live: {
           focus: 'workspace',
           requiresKeyboardNav: true,
           needsBlocks: true,
-          start: 'firstChild',
+          start: 'aIf',
           cue: 'Navigational assistant opened — it describes where you can move from here.'
         },
         success: 'Navigational assistant opened.'
@@ -309,12 +443,12 @@ export const KEYBOARD_TRACKS = [
           'run code', 'test it', 'launch'],
         keyHint: 'Shift plus R',
         instruction:
-          'Press Shift plus R to run your program. There is a small program on the ' +
-          'workspace now — a loop that prints a few lines — so the run has something ' +
-          'to do.',
+          'Press Shift plus R to run your program. There are two stacks on the ' +
+          'workspace now, so the run has something to do.',
         detect: { code: 'KeyR', shift: true },
         helpRow: 30,
         mode: 'any',
+        scene: 'twoStack',
         live: { focus: 'workspace', requiresKeyboardNav: true, needsBlocks: true, cue: 'Program run.' },
         success: 'Program run.'
       },
@@ -327,12 +461,15 @@ export const KEYBOARD_TRACKS = [
         instruction:
           'Press Shift plus O to open the output panel and hear what your program ' +
           'produced. Run the program first with Shift plus R so there is output to ' +
-          'read.',
+          'read. Inside the panel, W and S move you line by line through the output.',
         detect: { code: 'KeyO', shift: true },
         helpRow: 31,
         mode: 'any',
+        scene: 'twoStack',
         live: { focus: 'workspace', requiresKeyboardNav: true, needsBlocks: true, cue: 'Output panel opened.' },
-        success: 'Output panel opened.'
+        success:
+          'Output panel opened. Inside it, press W and S to read the output one ' +
+          'line at a time.'
       }
     ]
   },
@@ -345,11 +482,12 @@ export const KEYBOARD_TRACKS = [
     id: 'track-editing',
     title: 'Editing',
     description:
-      'Now change the program. First the master idea — switching between ' +
+      'Now change the two-stack program. First the master idea — switching between ' +
       'Navigation mode and Edit mode with E. Then move a block up or down, ' +
-      'disconnect it, cut and paste it, delete it, label a whole stack, and add a ' +
-      'comment. Each live step is confirmed by watching the real workspace change, ' +
-      'so you know the edit actually happened.',
+      'disconnect it, cut, copy, paste, and delete it, comment it, reach into a ' +
+      'block\'s inner property, and finally label a whole stack and fast-travel to ' +
+      'it. Each block-changing step is confirmed by watching the real workspace ' +
+      'change, so you know the edit actually happened.',
     requiresSandbox: true,
     shortcuts: [
       {
@@ -366,6 +504,7 @@ export const KEYBOARD_TRACKS = [
         detect: { code: 'KeyE' },
         helpRow: 6,
         mode: 'any',
+        scene: 'twoStack',
         success:
           'Edit mode toggled. Press E again or Escape to return to Navigation mode. ' +
           'When an editing key seems to do nothing, check your mode first.'
@@ -380,13 +519,14 @@ export const KEYBOARD_TRACKS = [
           'With the cursor on a block, hold Shift and press W to move that whole ' +
           'block up in its stack. This is the same Shift+W that moved the marker ' +
           'over empty space — but with a block selected it moves the block. Your ' +
-          'cursor is on the second print; press Shift plus W to lift it above the ' +
-          'first.',
+          'cursor is on the print after the if-else; press Shift plus W to lift it ' +
+          'above the if-else.',
         detect: { code: 'KeyW', shift: true },
         helpRow: 14,
         mode: 'navigation',
-        live: { focus: 'workspace', requiresKeyboardNav: true, needsBlocks: true, start: 'secondChild', confirm: 'workspaceChanged' },
-        success: 'Block moved up — the two prints swapped order.'
+        scene: 'twoStack',
+        live: { focus: 'workspace', requiresKeyboardNav: true, needsBlocks: true, start: 'aAfter', confirm: 'workspaceChanged' },
+        success: 'Block moved up — it now sits above the if-else.'
       },
       {
         id: 'move-block-down',
@@ -396,29 +536,32 @@ export const KEYBOARD_TRACKS = [
         keyHint: 'Shift plus S',
         instruction:
           'Hold Shift and press S to move the block at your cursor down in its ' +
-          'stack. Your cursor is on the first print; press Shift plus S to drop it ' +
-          'below the second.',
+          'stack. Your cursor is on the if-else block; press Shift plus S to drop it ' +
+          'below the print that follows it.',
         detect: { code: 'KeyS', shift: true },
         helpRow: 15,
         mode: 'navigation',
-        live: { focus: 'workspace', requiresKeyboardNav: true, needsBlocks: true, start: 'firstChild', confirm: 'workspaceChanged' },
-        success: 'Block moved down — the two prints swapped order.'
+        scene: 'twoStack',
+        live: { focus: 'workspace', requiresKeyboardNav: true, needsBlocks: true, start: 'aIf', confirm: 'workspaceChanged' },
+        success: 'Block moved down — the if-else now sits below the print.'
       },
       {
         id: 'disconnect-block',
         label: 'Disconnect a block',
         keywords: ['disconnect', 'detach', 'unplug', 'separate', 'pull apart',
           'loose', 'unhook', 'break apart', 'split', 'take off'],
-        keyHint: 'Shift plus X',
+        keyHint: 'E, then Shift plus X',
         instruction:
-          'In Edit mode, press Shift plus X to disconnect the block at your cursor ' +
-          'from the one above it, leaving it loose on the canvas. If nothing ' +
-          'happens, press E first to enter Edit mode. Your cursor is on the second ' +
-          'print; press Shift plus X to detach it.',
+          'Disconnecting happens in Edit mode, with your cursor sitting on the joint ' +
+          'between two blocks. Your cursor is on the print after the if-else. First ' +
+          'press E to enter Edit mode — the cursor drops onto the connection just ' +
+          'above the block. Then press Shift plus X to detach the block, leaving it ' +
+          'loose on the canvas.',
         detect: { code: 'KeyX', shift: true },
         helpRow: 13,
         mode: 'edit',
-        live: { focus: 'workspace', requiresKeyboardNav: true, needsBlocks: true, start: 'secondChild', confirm: 'workspaceChanged' },
+        scene: 'twoStack',
+        live: { focus: 'workspace', requiresKeyboardNav: true, needsBlocks: true, start: 'aAfter', confirm: 'workspaceChanged' },
         success: 'Block disconnected — it is now loose on the workspace.'
       },
       {
@@ -430,8 +573,8 @@ export const KEYBOARD_TRACKS = [
         instruction:
           'Cut and paste move a block from one place to another. Hold Control or ' +
           'Command and press X to cut the block at your cursor, then hold Control or ' +
-          'Command and press V to paste it back in. Your cursor is on the second ' +
-          'print — cut it, then paste it.',
+          'Command and press V to paste it back in. Your cursor is on the print ' +
+          'after the if-else — cut it, then paste it.',
         sequence: [
           {
             detect: { code: 'KeyX', mod: true },
@@ -439,7 +582,7 @@ export const KEYBOARD_TRACKS = [
             done: 'Cut. The block is on the clipboard.',
             confirm: 'workspaceChanged',
             cue: 'Block cut — it left the workspace.',
-            start: 'secondChild'
+            start: 'aAfter'
           },
           {
             detect: { code: 'KeyV', mod: true },
@@ -451,8 +594,36 @@ export const KEYBOARD_TRACKS = [
         ],
         helpRow: 16,
         mode: 'any',
+        scene: 'twoStack',
         live: { focus: 'workspace', requiresKeyboardNav: true, needsBlocks: true },
         success: 'That is cut and paste: Control or Command plus X to lift a block, plus V to drop it back in.'
+      },
+      {
+        id: 'copy-block',
+        label: 'Copy a block',
+        keywords: ['copy', 'duplicate', 'clone', 'copy block', 'clipboard',
+          'replicate', 'copy paste', 'make a copy'],
+        keyHint: 'Control or Command plus C',
+        instruction:
+          'Copy leaves the original in place and puts a copy on the clipboard, ' +
+          'ready to paste. Hold Control or Command and press C to copy the block at ' +
+          'your cursor. Your cursor is on the print after the if-else; copy it, then ' +
+          'paste it with Control or Command plus V.',
+        detect: { code: 'KeyC', mod: true },
+        mode: 'any',
+        scene: 'twoStack',
+        // Copy does not change the workspace, so there is nothing to confirm from
+        // state — this is an honest keystroke drill with a spoken cue.
+        live: {
+          focus: 'workspace',
+          requiresKeyboardNav: true,
+          needsBlocks: true,
+          start: 'aAfter',
+          cue: 'Block copied to the clipboard — paste it with Control or Command plus V.'
+        },
+        success:
+          'That is copy: Control or Command plus C duplicates the block onto the ' +
+          'clipboard, leaving the original where it is. Paste it with plus V.'
       },
       {
         id: 'delete-block',
@@ -462,40 +633,13 @@ export const KEYBOARD_TRACKS = [
         keyHint: 'Delete',
         instruction:
           'Press the Delete key to remove the block at your cursor for good. Your ' +
-          'cursor is on the second print; press Delete to remove it.',
+          'cursor is on the print after the if-else; press Delete to remove it.',
         detect: { key: 'Delete' },
         helpRow: 18,
         mode: 'any',
-        live: { focus: 'workspace', requiresKeyboardNav: true, needsBlocks: true, start: 'secondChild', confirm: 'workspaceChanged' },
+        scene: 'twoStack',
+        live: { focus: 'workspace', requiresKeyboardNav: true, needsBlocks: true, start: 'aAfter', confirm: 'workspaceChanged' },
         success: 'Block deleted — it is gone from the workspace.'
-      },
-      {
-        id: 'label-stack',
-        label: 'Label a whole stack',
-        keywords: ['label', 'stack labels', 'name', 'name stack', 'label stack',
-          'title', 'tag', 'mark', 'stack name', 'jump label', 'bookmark'],
-        keyHint: 'Q until the stack is selected, then Shift plus I',
-        instruction:
-          'You can name a whole stack so you can jump to it later. First select the ' +
-          'whole stack: press Q again and again to climb out until the entire stack ' +
-          'is highlighted with a red border. Then press Shift plus I to open the ' +
-          'label editor and type a name. Practise the keys now: press Q, then press ' +
-          'Shift plus I.',
-        sequence: [
-          {
-            detect: { code: 'KeyQ' },
-            prompt: 'Press Q to climb out toward the whole stack. In practice, repeat Q until the red border wraps the entire stack.',
-            done: 'Good. Keep pressing Q in the real editor until the whole stack is selected.'
-          },
-          {
-            detect: { code: 'KeyI', shift: true },
-            prompt: 'Now press Shift plus I to open the label editor.',
-            done: 'Good. Shift plus I opens the label editor for the selected stack.'
-          }
-        ],
-        helpRow: 28,
-        mode: 'any',
-        success: 'That is the move: Q out to the whole stack, then Shift plus I to name it.'
       },
       {
         id: 'comment-block',
@@ -505,13 +649,95 @@ export const KEYBOARD_TRACKS = [
         keyHint: 'Control or Command plus Slash',
         instruction:
           'Hold Control or Command and press the slash key to add a comment to the ' +
-          'block at your cursor, or hide it again. Your cursor is on the first ' +
-          'print; press Control or Command plus slash to toggle a comment on it.',
+          'block at your cursor, or hide it again. Your cursor is on the if-else ' +
+          'block; press Control or Command plus slash to toggle a comment on it.',
         detect: { code: 'Slash', mod: true },
         helpRow: 19,
         mode: 'any',
-        live: { focus: 'workspace', requiresKeyboardNav: true, needsBlocks: true, start: 'firstChild', confirm: 'workspaceChanged' },
+        scene: 'twoStack',
+        // Toggling a comment adds an (initially empty) comment bubble, which does
+        // NOT change the serialized workspace — so there is nothing reliable to
+        // confirm from state. Like copy, this is an honest keystroke drill: the
+        // detect pins the exact key, the real plugin toggles the comment, and a
+        // spoken cue confirms it.
+        live: {
+          focus: 'workspace',
+          requiresKeyboardNav: true,
+          needsBlocks: true,
+          start: 'aIf',
+          cue: 'Comment toggled on the block at your cursor.'
+        },
         success: 'Comment toggled on the block.'
+      },
+      {
+        id: 'focus-property',
+        label: 'Reach into a block\'s inner value',
+        keywords: ['property', 'inner value', 'inside value', 'field', 'condition',
+          'focus property', 'reach in', 'inner element', 'the value', 'edit value',
+          'into the slot', 'test value'],
+        keyHint: 'Shift plus F',
+        instruction:
+          'Blocks hold parts inside them — a while loop holds its while-or-until ' +
+          'selector and its test, a set block holds its count. Press Shift plus F ' +
+          'to jump the cursor straight to the block\'s first inner part so you can ' +
+          'read or change it. Your cursor is on the while loop in Stack B; press ' +
+          'Shift plus F to drop onto its while-or-until selector.',
+        detect: { code: 'KeyF', shift: true },
+        helpRow: 24,
+        mode: 'any',
+        scene: 'twoStack',
+        live: { focus: 'workspace', requiresKeyboardNav: true, needsBlocks: true, start: 'bWhile', confirm: 'cursorMoved' },
+        success: 'Reached the block\'s inner value — the cursor is on it now.'
+      },
+      {
+        id: 'label-stack',
+        label: 'Label a whole stack',
+        keywords: ['label', 'stack labels', 'name', 'name stack', 'label stack',
+          'title', 'tag', 'mark', 'stack name', 'jump label', 'bookmark', 'customize'],
+        keyHint: 'Shift plus I',
+        instruction:
+          'You can name a whole stack so you can jump to it later. With the cursor ' +
+          'on the top block of a stack, press Shift plus I to open the label editor ' +
+          'and type a name. Your cursor is on the if-else at the top of Stack A; ' +
+          'press Shift plus I to name this stack.',
+        detect: { code: 'KeyI', shift: true },
+        helpRow: 28,
+        mode: 'any',
+        scene: 'twoStack',
+        live: {
+          focus: 'workspace',
+          requiresKeyboardNav: true,
+          needsBlocks: true,
+          start: 'aIf',
+          cue: 'Label editor opened — type a name for the stack.'
+        },
+        success:
+          'That is Shift plus I — it opens the label editor for the stack at your ' +
+          'cursor. Give a stack a one-letter name and you can jump to it instantly.'
+      },
+      {
+        id: 'jump-to-label',
+        label: 'Fast-travel to a labelled stack',
+        keywords: ['jump to label', 'jump to stack', 'fast travel', 'go to label',
+          'teleport', 'option letter', 'alt letter', 'labelled stack', 'quick jump',
+          'jump letter'],
+        keyHint: 'Option plus a letter',
+        instruction:
+          'Once a stack has a label, hold Option and press the first letter of that ' +
+          'label to jump your cursor straight to it from anywhere — no matter how ' +
+          'far away it is. For practice, hold Option and press A, as if jumping to ' +
+          'a stack you labelled with the letter A.',
+        detect: { code: 'KeyA', alt: true },
+        helpRow: 26,
+        mode: 'any',
+        scene: 'twoStack',
+        // Rehearsal: there is no guaranteed stack labelled "A" on the canvas, so we
+        // honestly confirm the keystroke and teach the pattern rather than fake a
+        // jump. The real jump works once the learner has labelled a stack.
+        success:
+          'That is the fast-travel key: Option plus a letter jumps to the stack ' +
+          'labelled with it. Pair it with Shift plus I and you can name stacks and ' +
+          'leap between them across a big program.'
       }
     ]
   }
@@ -557,7 +783,21 @@ export function getAllShortcuts() {
  * @returns {Array<object>} Matching shortcuts (with trackId), best first.
  */
 export function searchShortcuts(query) {
-  const q = (query || '').trim().toLowerCase();
+  // Key hints are authored with the WORDS "plus" and "slash" (e.g. "Shift plus
+  // W") because a screen reader reads those aloud naturally. But learners type
+  // the SYMBOLS — "shift+w", "ctrl+/". The tokenizer below strips every
+  // non-alphanumeric character, so a bare "+" or "/" would otherwise match
+  // nothing. Fold those symbols (and the common ctrl/cmd abbreviations) to the
+  // words the hints actually use, BEFORE tokenizing, so symbol and word queries
+  // behave identically.
+  const normalizeQuery = (s) =>
+    s
+      .replace(/\+/g, ' plus ')
+      .replace(/\//g, ' slash ')
+      .replace(/\bctrl\b/g, 'control')
+      .replace(/\bcmd\b/g, 'command');
+
+  const q = normalizeQuery((query || '').trim().toLowerCase());
   if (!q) return [];
   const tokens = q.split(/\s+/).filter(Boolean);
   const splitWords = (s) => s.split(/[^a-z0-9]+/).filter(Boolean);

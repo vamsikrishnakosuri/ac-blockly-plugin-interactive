@@ -6,13 +6,21 @@
 import { announce } from '../shared/utilities/announce.js';
 
 export class UnlockState {
-  constructor(lessons) {
+  /**
+   * @param {Array} lessons
+   * @param {Object} [opts]
+   * @param {boolean} [opts.announceUnlocks=false] - Speak a line for each block/
+   *   key a lesson unlocks. Off by default: the Lesson Runner narrates its own
+   *   flow, and raw "Unlocked block: text_print" lines are noise on top of it.
+   */
+  constructor(lessons, opts = {}) {
     this.lessons = lessons;
+    this.announceUnlocks = !!opts.announceUnlocks;
     this.currentLessonIndex = 0;
     this.completedLessons = new Set();
     this.unlockedBlocks = new Set();
     this.unlockedKeys = new Set();
-    
+
     // Initialize with first lesson's unlocks
     if (lessons.length > 0) {
       this.unlockLesson(lessons[0]);
@@ -75,14 +83,14 @@ export class UnlockState {
     lesson.unlocks.blocks.forEach(block => {
       if (!this.unlockedBlocks.has(block)) {
         this.unlockedBlocks.add(block);
-        announce(`Unlocked block: ${block}`);
+        if (this.announceUnlocks) announce(`Unlocked block: ${block}`);
       }
     });
 
     lesson.unlocks.keys.forEach(key => {
       if (!this.unlockedKeys.has(key)) {
         this.unlockedKeys.add(key);
-        announce(`Unlocked keyboard command: ${key}`);
+        if (this.announceUnlocks) announce(`Unlocked keyboard command: ${key}`);
       }
     });
   }

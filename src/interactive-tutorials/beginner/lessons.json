@@ -1,181 +1,477 @@
 [
   {
-    "id": "easy-lesson-01",
-    "title": "First Steps: Moving Around",
-    "summary": "Learn to navigate the workspace using W and S keys",
-    "estimatedMinutes": 5,
-    "unlocks": {
-      "blocks": ["text_print"],
-      "keys": ["w", "s", "e", "escape"]
-    },
-    "preconditions": {
-      "blocks": [],
-      "keys": []
-    },
+    "id": "beginner-01-print",
+    "title": "Level 1: Show a Message",
+    "summary": "Use the print block to make the program say something.",
+    "estimatedMinutes": 6,
+    "unlocks": { "blocks": ["text_print", "text"], "keys": [] },
+    "preconditions": { "blocks": [], "keys": [] },
     "steps": [
       {
-        "stepId": "step-01-intro",
-        "instruction": "Welcome to Easy Mode! You'll learn block programming step by step. Press W to move up or S to move down to explore the workspace.",
-        "screenReaderHint": "Use W key to move cursor up, S key to move cursor down. Focus is currently on the workspace.",
-        "successCriterion": {
-          "type": "keyPressed",
-          "params": { "keys": ["w", "s"], "count": 3 }
-        }
+        "stepId": "l1-intro",
+        "instruction": "Welcome to Beginner mode. We build real programs one block at a time. A program is a stack of blocks the computer runs top to bottom. Press Continue when you are ready.",
+        "screenReaderHint": "Beginner mode, Level 1. We will make the program print a message. Press the Continue button to begin.",
+        "successCriterion": { "type": "userConfirmation", "params": {} },
+        "successText": "Let's build."
       },
       {
-        "stepId": "step-01-find-block",
-        "instruction": "Great! Now navigate to the print block. It's the only block available right now. Use W and S to find it.",
-        "screenReaderHint": "Print block allows you to display text messages. Navigate with W and S until you hear 'print block'.",
-        "successCriterion": {
-          "type": "blockFocused",
-          "params": { "blockType": "text_print" }
-        }
+        "stepId": "l1-add-print",
+        "instruction": "From the Text category in the toolbox, add a print block to the workspace. A print block shows a message when the program runs.",
+        "screenReaderHint": "Open the toolbox, choose the Text category, and place the print block. With the keyboard: press T to open the toolbox, move to Text, then place the print block onto the workspace.",
+        "successCriterion": { "type": "blockExists", "params": { "blockType": "text_print" } },
+        "successText": "Print block added. It already holds a small text slot that says abc."
       },
       {
-        "stepId": "step-01-edit-mode",
-        "instruction": "Perfect! You found the print block. Now press E to enter Edit mode so you can change what it says.",
-        "screenReaderHint": "Press E to toggle Edit mode. Edit mode lets you modify blocks and connect them together.",
-        "successCriterion": {
-          "type": "editModeActive",
-          "params": {}
-        }
+        "stepId": "l1-set-text",
+        "instruction": "The print block came with a text value that says \"abc\". Change that text to your own message, for example your name or \"Hello\".",
+        "screenReaderHint": "Edit the text inside the print block. Move the cursor onto the text value and type a new message to replace abc.",
+        "successCriterion": { "type": "fieldSet", "params": { "blockType": "text", "field": "TEXT", "notValues": ["abc", ""] } },
+        "successText": "Your message is set."
       },
       {
-        "stepId": "step-01-exit-edit",
-        "instruction": "Good! You're now in Edit mode. Press Escape to exit Edit mode and return to Navigation mode.",
-        "screenReaderHint": "Press Escape to leave Edit mode and return to Navigation mode.",
-        "successCriterion": {
-          "type": "editModeInactive",
-          "params": {}
-        }
+        "stepId": "l1-run",
+        "instruction": "Now run the program. Press the Run button. Your message appears in the Output panel.",
+        "screenReaderHint": "Activate the Run button to run your program. The output panel will read your message.",
+        "successCriterion": { "type": "programRan", "params": {} },
+        "successText": "It ran. Your message printed to the output."
       },
       {
-        "stepId": "step-01-complete",
-        "instruction": "Excellent! You've learned the basics: W and S navigate, E enters Edit mode, and Escape exits. You're ready for the next lesson!",
-        "screenReaderHint": "Lesson complete. You can now navigate the workspace and toggle Edit mode. Press Enter or click Continue to proceed.",
-        "successCriterion": {
-          "type": "userConfirmation",
-          "params": {}
-        }
+        "stepId": "l1-recap",
+        "instruction": "That is a whole program: a print block with a message, run to produce output. Press Continue to finish Level 1.",
+        "screenReaderHint": "Level 1 recap. You added a print block, set its message, and ran it. Press Continue to complete the level.",
+        "successCriterion": { "type": "userConfirmation", "params": {} },
+        "successText": "Level 1 complete."
       }
     ],
     "hints": [
-      "Remember: W moves up, S moves down",
-      "The print block is in the toolbox. Use W/S to find it",
-      "Press E when you're on a block to enter Edit mode",
-      "Escape always returns you to the previous state"
+      "The print block lives in the Text category of the toolbox.",
+      "Place the print block on an empty part of the workspace first.",
+      "To change the message, edit the text value that sits inside the print block.",
+      "The Run button is above the workspace; the result shows in the Output panel."
     ]
   },
   {
-    "id": "easy-lesson-02",
-    "title": "Using the Print Block",
-    "summary": "Create your first program with the print block",
+    "id": "beginner-02-numbers",
+    "title": "Level 2: Numbers and Math",
+    "summary": "Do a calculation with number and arithmetic blocks, and print the result.",
     "estimatedMinutes": 8,
-    "unlocks": {
-      "blocks": ["text"],
-      "keys": ["t"]
-    },
-    "preconditions": {
-      "blocks": ["text_print"],
-      "keys": ["w", "s", "e", "escape"]
-    },
-    "steps": [],
-    "hints": []
+    "unlocks": { "blocks": ["math_number", "math_arithmetic"], "keys": [] },
+    "preconditions": { "blocks": ["text_print", "text"], "keys": [] },
+    "steps": [
+      {
+        "stepId": "l2-intro",
+        "instruction": "Computers are great at math. The Math category has number blocks and an arithmetic block that adds, subtracts, multiplies, or divides. Press Continue.",
+        "screenReaderHint": "Level 2. We will build a calculation and print its answer. Press Continue.",
+        "successCriterion": { "type": "userConfirmation", "params": {} },
+        "successText": "Onward."
+      },
+      {
+        "stepId": "l2-add-arith",
+        "instruction": "From the Math category, add an arithmetic block. It comes with two number slots and a plus sign between them.",
+        "screenReaderHint": "Place the arithmetic block from the Math category. It has two number inputs joined by an operator you can change.",
+        "successCriterion": { "type": "blockExists", "params": { "blockType": "math_arithmetic" } },
+        "successText": "Arithmetic block added."
+      },
+      {
+        "stepId": "l2-set-number",
+        "instruction": "Change at least one of the two numbers in the arithmetic block to a value other than 1.",
+        "screenReaderHint": "Edit one of the number values inside the arithmetic block. Replace the default 1 with another number.",
+        "successCriterion": { "type": "fieldSet", "params": { "blockType": "math_number", "field": "NUM", "notValues": ["1", "0"] } },
+        "successText": "Number changed."
+      },
+      {
+        "stepId": "l2-print-result",
+        "instruction": "Add a print block and drop the arithmetic block into the print block's message slot, so the program prints the answer.",
+        "screenReaderHint": "Connect the arithmetic block into the print block's text input, replacing its text value, so the calculation result is what gets printed.",
+        "successCriterion": { "type": "blockConnected", "params": { "childType": "math_arithmetic", "parentType": "text_print", "input": "TEXT" } },
+        "successText": "The calculation is now wired into the print block."
+      },
+      {
+        "stepId": "l2-run",
+        "instruction": "Run the program. The answer to your calculation appears in the Output panel.",
+        "screenReaderHint": "Activate Run. The output reads the numeric result of your arithmetic.",
+        "successCriterion": { "type": "programRan", "params": {} },
+        "successText": "Level 2 complete. You printed a calculated answer."
+      }
+    ],
+    "hints": [
+      "The arithmetic block is in the Math category; it has two number slots.",
+      "Click or move onto a number value to type a different number.",
+      "The operator in the middle can be changed to plus, minus, times, or divide.",
+      "Drop the arithmetic block into the print block where its text value used to be."
+    ]
   },
   {
-    "id": "easy-lesson-03",
-    "title": "Adding Text",
-    "summary": "Learn to use text blocks inside print blocks",
+    "id": "beginner-03-variables",
+    "title": "Level 3: Remember a Value",
+    "summary": "Store a value in a variable and use it again.",
+    "estimatedMinutes": 9,
+    "unlocks": { "blocks": ["variables_set", "variables_get"], "keys": [] },
+    "preconditions": { "blocks": ["text_print", "text", "math_number"], "keys": [] },
+    "steps": [
+      {
+        "stepId": "l3-intro",
+        "instruction": "A variable is a labelled box that remembers a value so you can use it later. The Variables category lets you make one. Press Continue.",
+        "screenReaderHint": "Level 3. We will create a variable, store a value in it, and print it. Press Continue.",
+        "successCriterion": { "type": "userConfirmation", "params": {} },
+        "successText": "Let's make a variable."
+      },
+      {
+        "stepId": "l3-set",
+        "instruction": "In the Variables category, create a variable, then add a \"set\" block that stores a value into it.",
+        "screenReaderHint": "Open the Variables category, create a new variable, and place a set block. The set block assigns a value to your variable.",
+        "successCriterion": { "type": "blockExists", "params": { "blockType": "variables_set" } },
+        "successText": "Set block added — your variable can now hold a value."
+      },
+      {
+        "stepId": "l3-get-and-print",
+        "instruction": "Add a print block, then place a \"get\" version of your variable into the print so the program shows what the variable holds.",
+        "screenReaderHint": "Add a print block and drop a variable get block into its text slot, so printing reads the variable's stored value.",
+        "successCriterion": { "type": "blockConnected", "params": { "childType": "variables_get", "parentType": "text_print", "input": "TEXT" } },
+        "successText": "The print now reads your variable."
+      },
+      {
+        "stepId": "l3-run",
+        "instruction": "Run the program. It prints whatever value you stored in the variable.",
+        "screenReaderHint": "Activate Run. The output reads the value your variable holds.",
+        "successCriterion": { "type": "programRan", "params": {} },
+        "successText": "Level 3 complete. Variables let you reuse a value by name."
+      }
+    ],
+    "hints": [
+      "Use the Variables category to create a variable first; give it a clear name.",
+      "The set block reads: set [name] to [value].",
+      "Put a number or text block into the set block's value slot.",
+      "The get block is the rounded variable block you drop into the print."
+    ]
+  },
+  {
+    "id": "beginner-04-text",
+    "title": "Level 4: Build Text",
+    "summary": "Join pieces of text together and inspect text.",
+    "estimatedMinutes": 9,
+    "unlocks": { "blocks": ["text_join", "text_length", "text_changeCase"], "keys": [] },
+    "preconditions": { "blocks": ["text_print", "text"], "keys": [] },
+    "steps": [
+      {
+        "stepId": "l4-intro",
+        "instruction": "You can glue text together to build sentences. The \"create text with\" block joins several pieces into one. Press Continue.",
+        "screenReaderHint": "Level 4. We will join text pieces and print the combined result. Press Continue.",
+        "successCriterion": { "type": "userConfirmation", "params": {} },
+        "successText": "Let's join some text."
+      },
+      {
+        "stepId": "l4-join",
+        "instruction": "From the Text category, add the \"create text with\" block. It has slots for two pieces of text.",
+        "screenReaderHint": "Place the create-text-with block from the Text category. It joins multiple text values into one string.",
+        "successCriterion": { "type": "blockExists", "params": { "blockType": "text_join" } },
+        "successText": "Join block added."
+      },
+      {
+        "stepId": "l4-fill",
+        "instruction": "Put a text value into the join block and type a word into it, such as \"Hello \".",
+        "screenReaderHint": "Add a text value into one of the join block's slots and type a word into it.",
+        "successCriterion": { "type": "fieldSet", "params": { "blockType": "text", "field": "TEXT", "notValues": ["", "abc"] } },
+        "successText": "First piece of text set."
+      },
+      {
+        "stepId": "l4-print",
+        "instruction": "Drop the join block into a print block, then run the program to see the joined text.",
+        "screenReaderHint": "Connect the join block into a print block's text slot, then run to print the combined text.",
+        "successCriterion": { "type": "allOf", "params": { "criteria": [
+          { "type": "blockConnected", "params": { "childType": "text_join", "parentType": "text_print", "input": "TEXT" } },
+          { "type": "programRan", "params": {} }
+        ] } },
+        "successText": "Level 4 complete. You combined pieces of text into one message."
+      }
+    ],
+    "hints": [
+      "The create-text-with block is in the Text category.",
+      "Each slot of the join block takes its own text value.",
+      "Type directly into a text value to change what it says.",
+      "Drop the whole join block into the print block's message slot."
+    ]
+  },
+  {
+    "id": "beginner-05-logic",
+    "title": "Level 5: True and False",
+    "summary": "Compare values and work with true/false results.",
+    "estimatedMinutes": 9,
+    "unlocks": { "blocks": ["logic_boolean", "logic_compare", "logic_operation", "logic_negate"], "keys": [] },
+    "preconditions": { "blocks": ["text_print", "math_number"], "keys": [] },
+    "steps": [
+      {
+        "stepId": "l5-intro",
+        "instruction": "Programs make decisions using true and false. A compare block checks two values and answers true or false. Press Continue.",
+        "screenReaderHint": "Level 5. We will compare two numbers and print whether the result is true or false. Press Continue.",
+        "successCriterion": { "type": "userConfirmation", "params": {} },
+        "successText": "Let's compare."
+      },
+      {
+        "stepId": "l5-compare",
+        "instruction": "From the Logic category, add a compare block. It checks two values with a sign like equals, less than, or greater than.",
+        "screenReaderHint": "Place the compare block from the Logic category. It compares a left value and a right value.",
+        "successCriterion": { "type": "blockExists", "params": { "blockType": "logic_compare" } },
+        "successText": "Compare block added."
+      },
+      {
+        "stepId": "l5-numbers",
+        "instruction": "Put a number into each side of the compare block. Use two different numbers.",
+        "screenReaderHint": "Add a number value to the left and right inputs of the compare block, using two different numbers.",
+        "successCriterion": { "type": "blockConnected", "params": { "childType": "math_number", "parentType": "logic_compare" } },
+        "successText": "The comparison has values to check."
+      },
+      {
+        "stepId": "l5-print-run",
+        "instruction": "Drop the compare block into a print block and run it. The output says true or false.",
+        "screenReaderHint": "Connect the compare block into a print block's slot, then run. The output reads true or false.",
+        "successCriterion": { "type": "allOf", "params": { "criteria": [
+          { "type": "blockConnected", "params": { "childType": "logic_compare", "parentType": "text_print", "input": "TEXT" } },
+          { "type": "programRan", "params": {} }
+        ] } },
+        "successText": "Level 5 complete. Comparisons give you true or false to decide with."
+      }
+    ],
+    "hints": [
+      "The compare block is in the Logic category.",
+      "Change the middle sign to equals, less than, or greater than.",
+      "Each side of the compare takes a number value.",
+      "Print the compare block to see its true or false result."
+    ]
+  },
+  {
+    "id": "beginner-06-if",
+    "title": "Level 6: Make a Decision",
+    "summary": "Use an if block to run code only when a condition is true.",
+    "estimatedMinutes": 11,
+    "unlocks": { "blocks": ["controls_if"], "keys": [] },
+    "preconditions": { "blocks": ["text_print", "logic_compare", "logic_boolean"], "keys": [] },
+    "steps": [
+      {
+        "stepId": "l6-intro",
+        "instruction": "An if block runs the blocks inside it only when its condition is true. Add an else part and it runs something different when the condition is false. Press Continue.",
+        "screenReaderHint": "Level 6. We will build an if block that prints one thing when true and another when false. Press Continue.",
+        "successCriterion": { "type": "userConfirmation", "params": {} },
+        "successText": "Let's branch."
+      },
+      {
+        "stepId": "l6-add-if",
+        "instruction": "From the Logic category, add an if block to the workspace.",
+        "screenReaderHint": "Place the if block from the Logic category. It has a condition slot and a body that runs when the condition is true.",
+        "successCriterion": { "type": "blockExists", "params": { "blockType": "controls_if" } },
+        "successText": "If block added."
+      },
+      {
+        "stepId": "l6-condition",
+        "instruction": "Put a condition into the if block: drop a compare block or a true/false block into its condition slot.",
+        "screenReaderHint": "Add a condition to the if block by connecting a compare block or a boolean true/false block into its IF slot.",
+        "successCriterion": { "type": "anyOf", "params": { "criteria": [
+          { "type": "blockConnected", "params": { "childType": "logic_compare", "parentType": "controls_if" } },
+          { "type": "blockConnected", "params": { "childType": "logic_boolean", "parentType": "controls_if" } }
+        ] } },
+        "successText": "The if block has a condition to test."
+      },
+      {
+        "stepId": "l6-body",
+        "instruction": "Inside the if block's body, add a print block so something happens when the condition is true. Then run it.",
+        "screenReaderHint": "Place a print block inside the if block's do-section, then run the program.",
+        "successCriterion": { "type": "allOf", "params": { "criteria": [
+          { "type": "blockConnected", "params": { "childType": "text_print", "parentType": "controls_if" } },
+          { "type": "programRan", "params": {} }
+        ] } },
+        "successText": "Level 6 complete. Your program now decides what to do."
+      }
+    ],
+    "hints": [
+      "The if block is in the Logic category.",
+      "The condition slot sits at the top of the if block.",
+      "Reuse a compare block from Level 5 as the condition.",
+      "Put the print block inside the if block's body, not below it."
+    ]
+  },
+  {
+    "id": "beginner-07-loops-count",
+    "title": "Level 7: Repeat Something",
+    "summary": "Use a repeat loop to run blocks several times.",
     "estimatedMinutes": 10,
-    "unlocks": {
-      "blocks": ["text_join"],
-      "keys": ["a", "d"]
-    },
-    "preconditions": {
-      "blocks": ["text_print", "text"],
-      "keys": ["w", "s", "e", "t", "escape"]
-    },
-    "steps": [],
-    "hints": []
+    "unlocks": { "blocks": ["controls_repeat_ext", "controls_for"], "keys": [] },
+    "preconditions": { "blocks": ["text_print", "math_number"], "keys": [] },
+    "steps": [
+      {
+        "stepId": "l7-intro",
+        "instruction": "A loop repeats blocks for you instead of copying them. The repeat block runs its body a set number of times. Press Continue.",
+        "screenReaderHint": "Level 7. We will repeat a print several times with a loop. Press Continue.",
+        "successCriterion": { "type": "userConfirmation", "params": {} },
+        "successText": "Let's loop."
+      },
+      {
+        "stepId": "l7-add-repeat",
+        "instruction": "From the Loops category, add the \"repeat\" block. It already has a number telling it how many times to repeat.",
+        "screenReaderHint": "Place the repeat block from the Loops category. It repeats its body a set number of times.",
+        "successCriterion": { "type": "blockExists", "params": { "blockType": "controls_repeat_ext" } },
+        "successText": "Repeat block added."
+      },
+      {
+        "stepId": "l7-body",
+        "instruction": "Put a print block inside the repeat block's body so the message repeats.",
+        "screenReaderHint": "Place a print block inside the repeat block's do-section.",
+        "successCriterion": { "type": "blockConnected", "params": { "childType": "text_print", "parentType": "controls_repeat_ext" } },
+        "successText": "The print is now inside the loop."
+      },
+      {
+        "stepId": "l7-run",
+        "instruction": "Run the program. Your message prints once for each repeat. Try changing the repeat count and running again.",
+        "screenReaderHint": "Activate Run. The output repeats your message for the number of times set on the loop.",
+        "successCriterion": { "type": "programRan", "params": {} },
+        "successText": "Level 7 complete. Loops save you from repeating yourself."
+      }
+    ],
+    "hints": [
+      "The repeat block is in the Loops category.",
+      "The number on the repeat block sets how many times it runs.",
+      "Put the print block inside the loop's body so it repeats.",
+      "Change the count to a small number like 3 to keep the output short."
+    ]
   },
   {
-    "id": "easy-lesson-04",
-    "title": "Numbers and Math",
-    "summary": "Work with numbers and basic calculations",
+    "id": "beginner-08-loops-while",
+    "title": "Level 8: Loop Until Done",
+    "summary": "Use a while loop that repeats while a condition stays true.",
+    "estimatedMinutes": 11,
+    "unlocks": { "blocks": ["controls_whileUntil", "controls_flow_statements"], "keys": [] },
+    "preconditions": { "blocks": ["text_print", "logic_boolean", "controls_repeat_ext"], "keys": [] },
+    "steps": [
+      {
+        "stepId": "l8-intro",
+        "instruction": "A while loop keeps repeating as long as its condition is true. Useful when you don't know the exact number of repeats ahead of time. Press Continue.",
+        "screenReaderHint": "Level 8. We will build a while loop with a condition. Press Continue.",
+        "successCriterion": { "type": "userConfirmation", "params": {} },
+        "successText": "Let's build a while loop."
+      },
+      {
+        "stepId": "l8-add-while",
+        "instruction": "From the Loops category, add the \"repeat while\" block.",
+        "screenReaderHint": "Place the repeat-while block from the Loops category. It repeats while its condition is true.",
+        "successCriterion": { "type": "blockExists", "params": { "blockType": "controls_whileUntil" } },
+        "successText": "While loop added."
+      },
+      {
+        "stepId": "l8-condition",
+        "instruction": "Give the while loop a condition: drop a true/false block or a compare block into its condition slot.",
+        "screenReaderHint": "Connect a boolean or compare block into the while loop's condition slot.",
+        "successCriterion": { "type": "anyOf", "params": { "criteria": [
+          { "type": "blockConnected", "params": { "childType": "logic_boolean", "parentType": "controls_whileUntil" } },
+          { "type": "blockConnected", "params": { "childType": "logic_compare", "parentType": "controls_whileUntil" } }
+        ] } },
+        "successText": "The while loop has a condition."
+      },
+      {
+        "stepId": "l8-body",
+        "instruction": "Put a print block inside the while loop's body. Caution: a condition that is always true repeats forever, so plan to keep it short. Press Continue when your loop has a body.",
+        "screenReaderHint": "Place a print block inside the while loop's body, then press Continue.",
+        "successCriterion": { "type": "blockConnected", "params": { "childType": "text_print", "parentType": "controls_whileUntil" } },
+        "successText": "Level 8 complete. While loops repeat until their condition turns false."
+      }
+    ],
+    "hints": [
+      "The repeat-while block is in the Loops category.",
+      "Its condition slot is at the top, like the if block.",
+      "A boolean true/false block is the simplest condition to start with.",
+      "Keep the body small; an always-true condition never stops on its own."
+    ]
+  },
+  {
+    "id": "beginner-09-lists",
+    "title": "Level 9: Lists of Things",
+    "summary": "Make a list and read items out of it.",
     "estimatedMinutes": 12,
-    "unlocks": {
-      "blocks": ["math_number", "math_arithmetic"],
-      "keys": ["f"]
-    },
-    "preconditions": {
-      "blocks": ["text_print", "text", "text_join"],
-      "keys": ["w", "s", "a", "d", "e", "t", "escape"]
-    },
-    "steps": [],
-    "hints": []
+    "unlocks": { "blocks": ["lists_create_with", "lists_length", "lists_getIndex", "lists_setIndex", "controls_forEach"], "keys": [] },
+    "preconditions": { "blocks": ["text_print", "text", "variables_set"], "keys": [] },
+    "steps": [
+      {
+        "stepId": "l9-intro",
+        "instruction": "A list holds many values in order, like a shopping list. You can read items, count them, and loop over them. Press Continue.",
+        "screenReaderHint": "Level 9. We will make a list and print something about it. Press Continue.",
+        "successCriterion": { "type": "userConfirmation", "params": {} },
+        "successText": "Let's make a list."
+      },
+      {
+        "stepId": "l9-create",
+        "instruction": "From the Lists category, add the \"create list with\" block. Fill at least two of its slots with text values.",
+        "screenReaderHint": "Place the create-list-with block from the Lists category and add text values to its slots.",
+        "successCriterion": { "type": "blockExists", "params": { "blockType": "lists_create_with" } },
+        "successText": "List block added."
+      },
+      {
+        "stepId": "l9-length",
+        "instruction": "Add a \"length of\" block and drop your list into it, so you can count how many items the list has.",
+        "screenReaderHint": "Place a length-of block and connect your list into it to count its items.",
+        "successCriterion": { "type": "blockConnected", "params": { "childType": "lists_create_with", "parentType": "lists_length" } },
+        "successText": "You can now measure the list's length."
+      },
+      {
+        "stepId": "l9-print-run",
+        "instruction": "Drop the \"length of\" block into a print block and run it. The output shows how many items are in your list.",
+        "screenReaderHint": "Connect the length-of block into a print block, then run. The output reads the item count.",
+        "successCriterion": { "type": "allOf", "params": { "criteria": [
+          { "type": "blockConnected", "params": { "childType": "lists_length", "parentType": "text_print", "input": "TEXT" } },
+          { "type": "programRan", "params": {} }
+        ] } },
+        "successText": "Level 9 complete. Lists let you handle many values together."
+      }
+    ],
+    "hints": [
+      "The create-list-with block is in the Lists category.",
+      "Each slot of the list takes its own value; text values work well.",
+      "The length-of block counts the items in a list.",
+      "Print the length-of block to see the count when you run."
+    ]
   },
   {
-    "id": "easy-lesson-05",
-    "title": "Repeating Actions",
-    "summary": "Use loops to repeat code multiple times",
-    "estimatedMinutes": 15,
-    "unlocks": {
-      "blocks": ["controls_repeat_ext"],
-      "keys": ["q"]
-    },
-    "preconditions": {
-      "blocks": ["text_print", "text", "text_join", "math_number", "math_arithmetic"],
-      "keys": ["w", "s", "a", "d", "e", "f", "t", "escape"]
-    },
-    "steps": [],
-    "hints": []
-  },
-  {
-    "id": "easy-lesson-06",
-    "title": "Making Decisions",
-    "summary": "Learn if statements and logic blocks",
-    "estimatedMinutes": 15,
-    "unlocks": {
-      "blocks": ["controls_if", "logic_compare", "logic_boolean"],
-      "keys": ["shift_r"]
-    },
-    "preconditions": {
-      "blocks": ["text_print", "text", "math_number", "math_arithmetic", "controls_repeat_ext"],
-      "keys": ["w", "s", "a", "d", "e", "f", "q", "t", "escape"]
-    },
-    "steps": [],
-    "hints": []
-  },
-  {
-    "id": "easy-lesson-07",
-    "title": "Storing Information",
-    "summary": "Use variables to remember values",
+    "id": "beginner-10-functions",
+    "title": "Level 10: Make Your Own Block",
+    "summary": "Define a function once and call it to reuse it.",
     "estimatedMinutes": 12,
-    "unlocks": {
-      "blocks": ["variables_set", "variables_get"],
-      "keys": ["shift_o", "shift_h"]
-    },
-    "preconditions": {
-      "blocks": ["text_print", "text", "math_number", "math_arithmetic", "controls_repeat_ext", "controls_if", "logic_compare", "logic_boolean"],
-      "keys": ["w", "s", "a", "d", "e", "f", "q", "t", "shift_r", "escape"]
-    },
-    "steps": [],
-    "hints": []
-  },
-  {
-    "id": "easy-lesson-08",
-    "title": "Text Code Preview",
-    "summary": "See what your blocks look like as text code",
-    "estimatedMinutes": 10,
-    "unlocks": {
-      "blocks": [],
-      "keys": []
-    },
-    "preconditions": {
-      "blocks": ["text_print", "text", "math_number", "math_arithmetic", "controls_repeat_ext", "controls_if", "logic_compare", "logic_boolean", "variables_set", "variables_get"],
-      "keys": ["w", "s", "a", "d", "e", "f", "q", "t", "shift_r", "shift_o", "shift_h", "escape"]
-    },
-    "steps": [],
-    "hints": []
+    "unlocks": { "blocks": ["procedures_defnoreturn", "procedures_callnoreturn"], "keys": [] },
+    "preconditions": { "blocks": ["text_print", "controls_repeat_ext", "controls_if"], "keys": [] },
+    "steps": [
+      {
+        "stepId": "l10-intro",
+        "instruction": "A function is a block you define yourself: name a set of steps once, then run them any time by calling that name. This is how big programs stay tidy. Press Continue.",
+        "screenReaderHint": "Level 10, the capstone. We will define a function and call it. Press Continue.",
+        "successCriterion": { "type": "userConfirmation", "params": {} },
+        "successText": "Let's make a function."
+      },
+      {
+        "stepId": "l10-define",
+        "instruction": "From the Procedures category, add a \"to do something\" function-definition block, and give your function a name.",
+        "screenReaderHint": "Place a function-definition block from the Procedures category and name your function.",
+        "successCriterion": { "type": "blockExists", "params": { "blockType": "procedures_defnoreturn" } },
+        "successText": "Function defined."
+      },
+      {
+        "stepId": "l10-body",
+        "instruction": "Put a print block inside your function definition, so the function does something when called.",
+        "screenReaderHint": "Place a print block inside the function definition block's body.",
+        "successCriterion": { "type": "blockConnected", "params": { "childType": "text_print", "parentType": "procedures_defnoreturn" } },
+        "successText": "Your function now has a body."
+      },
+      {
+        "stepId": "l10-call-run",
+        "instruction": "Now add a call block for your function on the main workspace and run the program. Calling the function runs its steps.",
+        "screenReaderHint": "Place a call block for your function in the main program and run. The output shows the function's print.",
+        "successCriterion": { "type": "allOf", "params": { "criteria": [
+          { "type": "blockExists", "params": { "blockType": "procedures_callnoreturn" } },
+          { "type": "programRan", "params": {} }
+        ] } },
+        "successText": "Level 10 complete. You defined a function and called it — that completes Beginner mode!"
+      }
+    ],
+    "hints": [
+      "The function-definition block is in the Procedures category.",
+      "Name your function something clear, like greet.",
+      "Whatever you put inside the definition runs when the function is called.",
+      "After defining it, the Procedures category shows a call block for your function."
+    ]
   }
 ]

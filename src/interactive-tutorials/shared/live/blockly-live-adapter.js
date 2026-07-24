@@ -14,9 +14,9 @@
  *   workspace. Falls back to window.workspace / Blockly.getMainWorkspace().
  */
 import {
-  NAVIGATION_PRACTICE_XML,
   NAVIGATION_PRACTICE_DESCRIPTION,
   PRACTICE_ANCHORS,
+  PRACTICE_SCENES,
   BLOCK_FRIENDLY_NAMES
 } from '../data/practice-programs.js';
 
@@ -25,6 +25,13 @@ export function createBlocklyLiveAdapter(getWorkspace) {
   // the practice stack. Restored verbatim when they leave the sandbox so their
   // own work is never lost.
   let sandboxBackup = null;
+
+  // Which curated scene (see PRACTICE_SCENES) is currently laid on the canvas.
+  // The flowing curriculum moves through scenes — an empty canvas for the first
+  // marker drills, then the two-stack program for movement/editing — so the
+  // adapter must know which one is live to reset it, describe it, and resolve
+  // its cursor anchors. Null when we are not in the sandbox at all.
+  let currentSceneId = null;
 
   function blockly() {
     if (typeof window !== 'undefined' && window.Blockly) return window.Blockly;
@@ -74,6 +81,53 @@ export function createBlocklyLiveAdapter(getWorkspace) {
     return !!(ws && ws.keyboardAccessibilityMode);
   }
 
+  // Programmatically turn keyboard navigation ON for the learner (Option B:
+  // auto-enable). The live drills only make sense in keyboard-accessibility mode
+  // — the cursor and marker exist only then. Rather than wall the learner
+  // mid-flow demanding they press Ctrl+Shift+K, the trainer calls this to flip it
+  // on for them and announces the change. Ctrl+Shift+K is still taught as its own
+  // step so they learn the real shortcut.
+  //
+  // Reaches the plugin's NavigationController (exposed as window.navController in
+  // the demo boot). Returns true if keyboard nav is on after the call.
+  function enableKeyboardNav() {
+    const ws = workspace();
+    if (!ws) return false;
+    if (isKeyboardNavOn()) return true;
+    try {
+      const ctrl = typeof window !== 'undefined' ? window.navController : null;
+      if (ctrl && ctrl.enable) {
+        ctrl.enable(ws);
+        return isKeyboardNavOn();
+      }
+    } catch (e) {
+      /* no-op: treated as "could not enable" */
+    }
+    return false;
+  }
+
+  // Programmatically turn keyboard navigation OFF again. The Ctrl+Shift+K drill
+  // teaches the toggle, so it must begin from the "off" state for the keypress
+  // to have something real to turn on. Since the trainer auto-enables keyboard
+  // nav when it opens (so earlier drills work), this lets the toggle drill reset
+  // the editor to off just before asking the learner to press the keys, then the
+  // learner's own keypress flips it back on — a true, observable toggle.
+  function disableKeyboardNav() {
+    const ws = workspace();
+    if (!ws) return false;
+    if (!isKeyboardNavOn()) return true;
+    try {
+      const ctrl = typeof window !== 'undefined' ? window.navController : null;
+      if (ctrl && ctrl.disable) {
+        ctrl.disable(ws);
+        return !isKeyboardNavOn();
+      }
+    } catch (e) {
+      /* no-op: treated as "could not disable" */
+    }
+    return false;
+  }
+
   function isToolboxOpen() {
     const ws = workspace();
     if (!ws || !ws.getToolbox) return false;
@@ -93,22 +147,39 @@ export function createBlocklyLiveAdapter(getWorkspace) {
     return sandboxBackup !== null;
   }
 
-  function loadSandbox() {
+  // Lay a named curated scene (see PRACTICE_SCENES) on the canvas. The first
+  // time we enter the sandbox it stashes the learner's own blocks; subsequent
+  // scene swaps reuse that same stash so their work is restored intact however
+  // many scenes the curriculum walks through. An empty-xml scene clears to a
+  // blank canvas (used for the very first marker drills).
+  function loadScene(sceneId) {
     const ws = workspace();
     const B = blockly();
     if (!ws || !B) return false;
-    if (sandboxBackup !== null) return true; // already in the sandbox
+    const scene = PRACTICE_SCENES[sceneId];
+    if (!scene) return false;
     try {
-      // Stash current blocks so we can restore them on the way out.
-      sandboxBackup = B.serialization.workspaces.save(ws);
+      if (sandboxBackup === null) {
+        // First entry: stash current blocks so we can restore them on exit.
+        sandboxBackup = B.serialization.workspaces.save(ws);
+      }
       ws.clear();
-      const dom = B.utils.xml.textToDom(NAVIGATION_PRACTICE_XML);
-      B.Xml.domToWorkspace(dom, ws);
+      if (scene.xml && scene.xml.trim()) {
+        const dom = B.utils.xml.textToDom(scene.xml);
+        B.Xml.domToWorkspace(dom, ws);
+      }
+      currentSceneId = sceneId;
       return true;
     } catch (e) {
-      sandboxBackup = null;
       return false;
     }
+  }
+
+  function loadSandbox() {
+    // Backward-compatible default for callers that just want "the practice
+    // stack": the original single-stack navigation scene.
+    if (sandboxBackup !== null && currentSceneId) return true; // already loaded
+    return loadScene('nav');
   }
 
   function restoreSandbox() {
@@ -122,6 +193,7 @@ export function createBlocklyLiveAdapter(getWorkspace) {
       /* no-op: best-effort restore */
     }
     sandboxBackup = null;
+    currentSceneId = null;
     return true;
   }
 
@@ -134,10 +206,13 @@ export function createBlocklyLiveAdapter(getWorkspace) {
     const ws = workspace();
     const B = blockly();
     if (!ws || !B || sandboxBackup === null) return false;
+    const scene = PRACTICE_SCENES[currentSceneId] || PRACTICE_SCENES.nav;
     try {
       ws.clear();
-      const dom = B.utils.xml.textToDom(NAVIGATION_PRACTICE_XML);
-      B.Xml.domToWorkspace(dom, ws);
+      if (scene.xml && scene.xml.trim()) {
+        const dom = B.utils.xml.textToDom(scene.xml);
+        B.Xml.domToWorkspace(dom, ws);
+      }
       return true;
     } catch (e) {
       return false;
@@ -153,7 +228,11 @@ export function createBlocklyLiveAdapter(getWorkspace) {
     if (!ws || !ws.getAllBlocks) return '';
     const count = ws.getAllBlocks(false).length;
     if (sandboxBackup !== null) {
-      return `${NAVIGATION_PRACTICE_DESCRIPTION} That is ${count} blocks in all.`;
+      const scene = PRACTICE_SCENES[currentSceneId];
+      const desc = scene ? scene.description : NAVIGATION_PRACTICE_DESCRIPTION;
+      // The empty scene has no blocks to count — its description already says so.
+      if (count === 0) return desc;
+      return `${desc} That is ${count} blocks in all.`;
     }
     if (count === 0) return 'The workspace is empty — there are no blocks yet.';
     const stacks = ws.getTopBlocks ? ws.getTopBlocks(false).length : 1;
@@ -213,7 +292,12 @@ export function createBlocklyLiveAdapter(getWorkspace) {
     const B = blockly();
     const cur = cursor();
     if (!ws || !B || !cur || !B.ASTNode) return false;
-    const id = PRACTICE_ANCHORS[anchor] || anchor;
+    // Resolve the named anchor against the scene that is actually on the canvas
+    // (two-stack anchors differ from the nav scene's), then fall back to the nav
+    // anchors and finally treat the value as a raw block id.
+    const scene = PRACTICE_SCENES[currentSceneId];
+    const sceneAnchors = (scene && scene.anchors) || PRACTICE_ANCHORS;
+    const id = sceneAnchors[anchor] || PRACTICE_ANCHORS[anchor] || anchor;
     const block = ws.getBlockById ? ws.getBlockById(id) : null;
     if (!block) return false;
     try {
@@ -266,6 +350,8 @@ export function createBlocklyLiveAdapter(getWorkspace) {
     },
     focusWorkspace,
     isKeyboardNavOn,
+    enableKeyboardNav,
+    disableKeyboardNav,
     isToolboxOpen,
     probe(name) {
       const fn = probes[name];
@@ -273,6 +359,7 @@ export function createBlocklyLiveAdapter(getWorkspace) {
     },
     // Practice sandbox + cursor inspection.
     loadSandbox,
+    loadScene,
     restoreSandbox,
     resetSandbox,
     isSandboxLoaded,

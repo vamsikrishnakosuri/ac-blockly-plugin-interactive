@@ -84,7 +84,138 @@ export const PRACTICE_ANCHORS = {
  */
 export const BLOCK_FRIENDLY_NAMES = {
   controls_repeat_ext: 'the repeat loop',
+  controls_whileUntil: 'the while loop',
+  controls_if: 'the if-else block',
+  logic_boolean: 'a true-or-false value',
   text_print: 'a print block',
   text: 'a text value',
   math_number: 'a number'
+};
+
+// ===========================================================================
+// TWO-STACK SCENE
+//
+// The flowing curriculum opens on an empty canvas (marker practice), then —
+// once the learner has met the toolbox and placed a block — swaps in this
+// richer scene for everything from cursor movement through editing and stack
+// labels. Two separate stacks, each with more than one block, because several
+// later moves need exactly that:
+//   • W / S need vertical siblings to move between        → each stack is a column
+//   • A / D and F / Q need nesting                        → both stacks nest blocks
+//   • Opt+Shift+G ("jump to Stack B's second block") needs a real second stack
+//     with a real second block to aim at
+//   • Shift+F needs blocks with inner values (the if's condition, the while's
+//     condition) to drop the cursor onto
+//
+// Stack A: an if-else block (a print in each branch) followed by one more print.
+//          The cursor starts on the if-else block — "press S to go down".
+// Stack B: a while loop (a print nested inside) followed by one more print.
+//
+// Ids are stable and namespaced (sa- / sb-) so TWO_STACK_ANCHORS can park the
+// cursor anywhere a drill needs to begin.
+// ===========================================================================
+export const TWO_STACK_PRACTICE_XML = `
+<xml xmlns="https://developers.google.com/blockly/xml">
+  <block type="controls_if" id="sa-if" x="40" y="40">
+    <mutation else="1"></mutation>
+    <value name="IF0">
+      <block type="logic_boolean" id="sa-cond"><field name="BOOL">TRUE</field></block>
+    </value>
+    <statement name="DO0">
+      <block type="text_print" id="sa-print-if">
+        <value name="TEXT">
+          <block type="text" id="sa-text-if"><field name="TEXT">If branch</field></block>
+        </value>
+      </block>
+    </statement>
+    <statement name="ELSE">
+      <block type="text_print" id="sa-print-else">
+        <value name="TEXT">
+          <block type="text" id="sa-text-else"><field name="TEXT">Else branch</field></block>
+        </value>
+      </block>
+    </statement>
+    <next>
+      <block type="text_print" id="sa-print-after">
+        <value name="TEXT">
+          <block type="text" id="sa-text-after"><field name="TEXT">After the if</field></block>
+        </value>
+      </block>
+    </next>
+  </block>
+  <block type="controls_whileUntil" id="sb-while" x="320" y="40">
+    <field name="MODE">WHILE</field>
+    <value name="BOOL">
+      <block type="logic_boolean" id="sb-cond"><field name="BOOL">TRUE</field></block>
+    </value>
+    <statement name="DO">
+      <block type="text_print" id="sb-print-inner">
+        <value name="TEXT">
+          <block type="text" id="sb-text-inner"><field name="TEXT">Inside the loop</field></block>
+        </value>
+      </block>
+    </statement>
+    <next>
+      <block type="text_print" id="sb-print-after">
+        <value name="TEXT">
+          <block type="text" id="sb-text-after"><field name="TEXT">Stack B second</field></block>
+        </value>
+      </block>
+    </next>
+  </block>
+</xml>`;
+
+/**
+ * Spoken walk-through of the two-stack scene, announced when it loads so a BVI
+ * learner knows the shape of the canvas before moving around it.
+ */
+export const TWO_STACK_PRACTICE_DESCRIPTION =
+  'Here are two separate stacks. Stack A, on the left, starts with an if-else ' +
+  'block: when its test is true it prints "If branch", otherwise it prints ' +
+  '"Else branch"; below the if-else is one more print that says "After the if". ' +
+  'Stack B, on the right, is a while loop that prints "Inside the loop" while ' +
+  'its test is true, and below the loop one more print that says "Stack B ' +
+  'second". Your cursor starts on the if-else block at the top of Stack A.';
+
+/**
+ * Cursor anchors for the two-stack scene. Same idea as PRACTICE_ANCHORS: park
+ * the cursor where a drill's key is valid before asking the learner to press it.
+ */
+export const TWO_STACK_ANCHORS = {
+  // Stack A
+  aStart: 'sa-if',          // if-else block — where the cursor starts
+  aIf: 'sa-if',
+  aAfter: 'sa-print-after', // the print below the if-else (S moves here)
+  aIfPrint: 'sa-print-if',  // print nested in the IF branch (F lands here)
+  aCond: 'sa-cond',         // the if's true/false condition (Shift+F target)
+  // Stack B
+  bStart: 'sb-while',
+  bWhile: 'sb-while',
+  bInner: 'sb-print-inner', // print nested inside the while
+  bSecond: 'sb-print-after', // Stack B's second block (Opt+Shift+G target)
+  bCond: 'sb-cond'          // the while's condition (Shift+F target)
+};
+
+/**
+ * Scene registry. The trainer asks the adapter to load a scene by id at the
+ * point in the curriculum where it is needed: an empty canvas for the very
+ * first marker drills, the original single-stack program where it still fits,
+ * and the two-stack scene for cursor movement, editing, and stack labels.
+ */
+export const PRACTICE_SCENES = {
+  empty: {
+    xml: '<xml xmlns="https://developers.google.com/blockly/xml"></xml>',
+    description: 'The workspace is empty — a blank canvas with no blocks yet.',
+    anchors: {}
+  },
+  nav: {
+    xml: NAVIGATION_PRACTICE_XML,
+    description: NAVIGATION_PRACTICE_DESCRIPTION,
+    anchors: PRACTICE_ANCHORS
+  },
+  twoStack: {
+    xml: TWO_STACK_PRACTICE_XML,
+    description: TWO_STACK_PRACTICE_DESCRIPTION,
+    anchors: TWO_STACK_ANCHORS
+  }
 };

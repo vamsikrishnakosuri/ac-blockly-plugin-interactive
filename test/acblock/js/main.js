@@ -98,6 +98,9 @@ function initWorkspace() {
 
     // Initialize instructions overlay
     instructionsManager = window.initInstructionsOverlay();
+    // Expose it so Beginner mode can reuse this overlay as its on-demand written
+    // step view (audio + keyboard remain its primary channel).
+    window.instructionsManager = instructionsManager;
 
     // Set initial button state based on default selection (Default)
     const select = document.getElementById('programSelect');
@@ -133,6 +136,13 @@ function initWorkspace() {
     let nav = new NavigationController();
     nav.init();
     nav.addWorkspace(workspace);
+
+    // Expose the navigation controller so the keyboard trainer can flip keyboard
+    // navigation ON for the learner programmatically (Option B: auto-enable). The
+    // trainer's live drills require keyboard-accessibility mode; rather than wall
+    // the learner mid-flow demanding Ctrl+Shift+K, the live adapter reaches this
+    // controller to enable it silently and announce the change.
+    window.navController = nav;
 
     // Signal that the workspace is injected and keyboard nav is registered, so
     // listeners (e.g. the keyboard-trainer module) can speak the startup

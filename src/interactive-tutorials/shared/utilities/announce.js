@@ -29,6 +29,10 @@ let releasing = false;
 
 function makeRegion(level) {
   const el = document.createElement('div');
+  // Stable id so a modal (e.g. the keyboard trainer's aria-modal dialog) can
+  // relocate these regions INTO its subtree while open — screen readers ignore
+  // live-region updates that sit outside an aria-modal container.
+  el.id = `sr-live-${level}`;
   el.setAttribute('role', level === 'assertive' ? 'alert' : 'status');
   el.setAttribute('aria-live', level);
   el.setAttribute('aria-atomic', 'true');

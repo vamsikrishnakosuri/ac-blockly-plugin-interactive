@@ -26,7 +26,13 @@ export class InstructionsOverlayManager {
     this.boundKeyHandler = null;
     this.currentItemIndex = 0;
     this.navigableItems = [];
-    
+
+    // When set, show() renders this HTML instead of fetching a per-program
+    // scenario file. Beginner mode uses it to reuse this overlay as its on-demand
+    // visible step view (audio + keyboard stay the primary channel).
+    this.externalContent = null;
+    this.externalTitle = null;
+
     console.log('Instructions overlay: Initialized');
   }
 
@@ -114,6 +120,12 @@ export class InstructionsOverlayManager {
   bindKeyboardHandlers() {
     this.boundKeyHandler = (event) => {
       if (!this.isVisible) return;
+
+      // In docked-banner mode the overlay is a passive, click-through mirror of
+      // the live Beginner step. It must NOT capture keys — W/S, arrows and Escape
+      // all belong to the workspace while the learner is building. The runner's
+      // own Alt+ commands drive the tutorial; the banner just displays.
+      if (this.overlayElement.classList.contains('docked-tutorial')) return;
 
       const key = event.key.toUpperCase();
 
@@ -539,9 +551,72 @@ export class InstructionsOverlayManager {
   }
 
   /**
+   * Provide externally-managed content (e.g. the current Beginner-mode step) for
+   * this overlay to display instead of a per-program scenario file. Enables the
+   * info button so the content is reachable, and live-refreshes if already open.
+   * @param {string} html Pre-built instruction HTML (uses .instruction-item nodes)
+   * @param {string} [title] Overlay title
+   */
+  setExternalContent(html, title) {
+    this.externalContent = html;
+    this.externalTitle = title || 'Tutorial step';
+    const button = document.getElementById('showInstructions');
+    if (button) this.enableButton(button);
+    if (this.isVisible) this.renderExternalContent();
+  }
+
+  /**
+   * Clear externally-managed content and restore normal per-program behavior.
+   */
+  clearExternalContent() {
+    this.externalContent = null;
+    this.externalTitle = null;
+    this.updateButtonState();
+  }
+
+  /**
+   * Render the stored external content into the overlay body.
+   * @private
+   */
+  renderExternalContent() {
+    const contentElement = document.getElementById('instructions-content');
+    if (!contentElement) return;
+    contentElement.innerHTML = this.externalContent || '';
+    const titleEl = document.getElementById('instructions-title');
+    if (titleEl) titleEl.textContent = this.externalTitle || 'Tutorial step';
+
+    // Make each instruction item navigable with the overlay's W/S model.
+    this.navigableItems = Array.from(contentElement.querySelectorAll('.instruction-item'));
+    this.navigableItems.forEach((item, index) => {
+      item.setAttribute('tabindex', '-1');
+      item.setAttribute('role', 'listitem');
+      item.setAttribute(
+        'aria-label',
+        `Item ${index + 1} of ${this.navigableItems.length}: ${item.textContent.trim()}`
+      );
+    });
+    this.currentItemIndex = 0;
+  }
+
+  /**
    * Show the instructions overlay.
    */
   async show() {
+    // Beginner mode (or any external driver) takes precedence over per-program
+    // scenario files: render the supplied step content.
+    if (this.externalContent) {
+      this.renderExternalContent();
+      // Render as a non-blocking docked banner, NOT a full-screen modal: no
+      // backdrop, pinned to the top, pointer-events:none so it never intercepts
+      // a block drag. Beginner mode's primary channel is audio + keyboard; this
+      // is a glanceable visible copy that must not steal focus from the
+      // workspace (otherwise auto-advance-while-building would be impossible).
+      this.overlayElement.classList.add('docked-tutorial');
+      this.overlayElement.style.display = 'flex';
+      this.isVisible = true;
+      return;
+    }
+
     if (!this.currentProgramId) {
       this.showNoInstructionsMessage();
       return;
@@ -557,6 +632,10 @@ export class InstructionsOverlayManager {
 
       // Build navigable items
       this.buildNavigableItems();
+
+      // Per-program scenarios are a full-screen modal (focus-trapping is fine
+      // here because the learner is reading, not building).
+      this.overlayElement.classList.remove('docked-tutorial');
 
       // Show overlay
       this.overlayElement.style.display = 'flex';
@@ -600,6 +679,7 @@ export class InstructionsOverlayManager {
     if (!this.isVisible) return;
 
     this.overlayElement.style.display = 'none';
+    this.overlayElement.classList.remove('docked-tutorial');
     this.isVisible = false;
 
     console.log('Instructions overlay: Hidden');
@@ -648,6 +728,7 @@ export class InstructionsOverlayManager {
       </div>
     `;
 
+    this.overlayElement.classList.remove('docked-tutorial');
     this.overlayElement.style.display = 'flex';
     this.isVisible = true;
   }
@@ -666,6 +747,7 @@ export class InstructionsOverlayManager {
       </div>
     `;
 
+    this.overlayElement.classList.remove('docked-tutorial');
     this.overlayElement.style.display = 'flex';
     this.isVisible = true;
   }

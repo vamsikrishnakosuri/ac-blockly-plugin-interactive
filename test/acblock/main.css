@@ -899,6 +899,27 @@ pre code {
     overflow: hidden;
 }
 
+/* Tutorial "docked banner" variant: used when the overlay is showing a live
+   Beginner-mode step. It must stay visible WHILE the learner builds, so it has
+   no full-screen backdrop and is click-through (pointer-events:none) — it never
+   intercepts a block drag. Audio + keyboard remain the primary channel; this is
+   the on-screen mirror for sighted / low-vision viewers. */
+.instructions-overlay.docked-tutorial {
+    background-color: transparent;
+    align-items: flex-start;
+    justify-content: center;
+    padding-top: 64px;
+    pointer-events: none;
+}
+
+.instructions-overlay.docked-tutorial .instructions-overlay-content {
+    width: min(680px, 94vw);
+    max-height: 42vh;
+    pointer-events: none;
+    border: 2px solid #0b3d63;
+    box-shadow: 0 6px 24px rgba(0, 0, 0, 0.35);
+}
+
 .instructions-overlay-header {
     display: flex;
     justify-content: space-between;

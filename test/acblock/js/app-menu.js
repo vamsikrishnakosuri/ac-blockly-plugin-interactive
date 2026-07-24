@@ -88,6 +88,14 @@ function move(delta) {
 
 function selectMode(modeId) {
   const labels = { beginner: 'Beginner mode', intermediate: 'Intermediate mode' };
+  if (modeId === 'beginner') {
+    if (typeof window.beginnerModeToggle === 'function') {
+      window.beginnerModeToggle();
+    } else {
+      announce('Beginner mode is not ready yet.');
+    }
+    return;
+  }
   announce(`${labels[modeId] || modeId} selected. This mode is coming soon.`);
 }
 

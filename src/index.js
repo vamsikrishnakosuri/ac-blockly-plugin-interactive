@@ -16,6 +16,7 @@ import {AccessibleCursor} from "./cursors/accessible_cursor";
 
 // Tutorial Mode Components
 import {BeginnerController} from './interactive-tutorials/beginner/beginner-controller';
+import {LessonRunner} from './interactive-tutorials/beginner/lesson-runner';
 import {IntermediateController} from './interactive-tutorials/intermediate/intermediate-controller';
 import {ExpertController} from './interactive-tutorials/expert/expert-controller';
 import {ModeSelector} from './interactive-tutorials/shared/components/mode-selector';
@@ -33,6 +34,7 @@ export {
   AccessibleCursor,
   // Tutorial Mode
   BeginnerController,
+  LessonRunner,
   IntermediateController,
   ExpertController,
   ModeSelector,
